@@ -281,7 +281,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: Text('$day — ${kNetRoleLabels[role]}'),
+          title: Text(kNetRoleLabels[role]!),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,22 +301,20 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 ],
                 onChanged: (p) => setS(() => selected = p),
               ),
-              if (day == 'Other') ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: textCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Free-text (First Name/Call)',
-                    hintText: 'e.g. Jane/KG6XYZ',
-                  ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: textCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Free-text (First Name/Call)',
+                  hintText: 'e.g. Jane/KG6XYZ',
                 ),
-              ],
+              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () async {
-                await NetRepository.setNetRole(_weekId!, day, role);
+                await NetRepository.setNetRole(_weekId!, kNetRoleDay, role);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               },
               child: const Text('Clear'),
@@ -326,12 +324,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child: const Text('Cancel')),
             FilledButton(
               onPressed: () async {
-                final displayName =
-                    day == 'Other' && textCtrl.text.trim().isNotEmpty
-                        ? textCtrl.text.trim()
-                        : null;
+                final displayName = textCtrl.text.trim().isNotEmpty
+                    ? textCtrl.text.trim()
+                    : null;
                 await NetRepository.setNetRole(
-                  _weekId!, day, role,
+                  _weekId!, kNetRoleDay, role,
                   personId: selected?.id,
                   displayName: displayName,
                 );
@@ -1007,18 +1004,17 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Widget _buildNetRolesTable() {
+    final now = DateTime.now();
+    final dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    final todayLabel = '${dayNames[now.weekday % 7]} ${now.month}/${now.day}';
     return Table(
       border: TableBorder.all(color: Colors.grey.shade400),
       columnWidths: const {
         0: IntrinsicColumnWidth(),
-        1: FlexColumnWidth(),
-        2: FlexColumnWidth(),
-        3: FlexColumnWidth(),
-        4: FlexColumnWidth(),
+        1: FixedColumnWidth(200),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-        // Day headers
         TableRow(
           decoration: BoxDecoration(color: Colors.grey.shade200),
           children: [
@@ -1035,17 +1031,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child: const Text('Get Previous'),
               ),
             ),
-            ...kNetRoleDays.map((d) => Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Text(d,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center),
-                )),
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Text(todayLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center),
+            ),
           ],
         ),
-        // Net Control row
         _netRoleTableRow('net_control'),
-        // Scribe row
         _netRoleTableRow('scribe'),
       ],
     );
@@ -1059,7 +1053,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           child: Text(kNetRoleLabels[role]!,
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
-        ...kNetRoleDays.map((day) => _netRoleCell(day, role)),
+        _netRoleCell(kNetRoleDay, role),
       ],
     );
   }

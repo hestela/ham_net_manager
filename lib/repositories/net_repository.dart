@@ -18,7 +18,7 @@ const kMethodLabels = {
   'hf': 'Active\non HF',
 };
 
-const kNetRoleDays = ['Sunday', 'Monday', 'Tuesday', 'Other'];
+const kNetRoleDay = 'today';
 const kNetRoles = ['net_control', 'scribe'];
 const kNetRoleLabels = {'net_control': 'Net Control:', 'scribe': 'Scribe:'};
 
@@ -220,24 +220,22 @@ class NetRepository {
   static Future<Map<String, Map<String, dynamic>>> loadPreviousNetRoles(
       int currentWeekId) async {
     final result = <String, Map<String, dynamic>>{};
-    for (final day in kNetRoleDays) {
-      for (final role in kNetRoles) {
-        final rows = await _db.rawQuery('''
-          SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
-                 p.first_name, p.last_name, p.fcc_callsign
-          FROM net_roles nr
-          LEFT JOIN persons p ON p.id = nr.person_id
-          WHERE nr.week_id < ?
-            AND nr.day_of_week = ?
-            AND nr.role = ?
-            AND (nr.person_id IS NOT NULL
-                 OR (nr.display_name IS NOT NULL AND nr.display_name != ''))
-          ORDER BY nr.week_id DESC
-          LIMIT 1
-        ''', [currentWeekId, day, role]);
-        if (rows.isNotEmpty) {
-          result['$day|$role'] = Map<String, dynamic>.from(rows.first);
-        }
+    for (final role in kNetRoles) {
+      final rows = await _db.rawQuery('''
+        SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
+               p.first_name, p.last_name, p.fcc_callsign
+        FROM net_roles nr
+        LEFT JOIN persons p ON p.id = nr.person_id
+        WHERE nr.week_id < ?
+          AND nr.day_of_week = ?
+          AND nr.role = ?
+          AND (nr.person_id IS NOT NULL
+               OR (nr.display_name IS NOT NULL AND nr.display_name != ''))
+        ORDER BY nr.week_id DESC
+        LIMIT 1
+      ''', [currentWeekId, kNetRoleDay, role]);
+      if (rows.isNotEmpty) {
+        result['$kNetRoleDay|$role'] = Map<String, dynamic>.from(rows.first);
       }
     }
     return result;
