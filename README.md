@@ -2,6 +2,13 @@
 
 A Flutter application for managing ham radio nets on Linux and Windows desktop platforms.
 
+## Screenshots
+Main interface, buttons on the top right are:
+- export current check-ins for active date to csv
+- manage cities
+- manage members/vistors
+![Main UI](screenshots/main-ui.webp)
+
 ## Installation
 ### Linux
 ```bash
