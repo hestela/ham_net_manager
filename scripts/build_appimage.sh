@@ -77,7 +77,7 @@ if ! command -v appimagetool &> /dev/null; then
 fi
 
 mkdir -p "$OUTPUT_DIR"
-APPIMAGE_NAME="Ham_Net_Manager-$VERSION-x86_64.AppImage"
+APPIMAGE_NAME="Ham_Net_Manager-x86_64.AppImage"
 APPIMAGE_PATH="$OUTPUT_DIR/$APPIMAGE_NAME"
 
 appimagetool "$APPDIR" "$APPIMAGE_PATH"
