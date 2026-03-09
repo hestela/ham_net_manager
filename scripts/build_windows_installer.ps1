@@ -1,5 +1,6 @@
 # Build Ham Net Manager Windows installer using Inno Setup
 # Run this script from the project root on a Windows machine.
+# NOTE: this app does not have a proper code signing cert at the moment, so if you build an exe for this project, you likely can only use it on your machines as antivirus software may generate false-positives.
 
 param(
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"

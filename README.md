@@ -3,13 +3,16 @@
 A Flutter application for managing ham radio nets on Linux and Windows desktop platforms.
 
 ## Installation
-This is a WIP.
-Linux will have an AppImage which you can run directly or "install" into a folder such as /usr/local/bin or somewhere else in your PATH.  
+### Linux
+```bash
+sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-1.0.0-x86_64.AppImage -O /usr/local/bin/ham_net_manager
+sudo chmod +x /usr/local/bin/ham_net_manager
+```
+
+### Windows
 For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app.
-Mac build has not yet been tested
 
 ## Quick Start
-
 ### Prerequisites
 - Flutter 3.11+ (with desktop support enabled)
 - For Linux: GTK 3.0+ development files

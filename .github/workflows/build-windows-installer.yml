@@ -27,12 +27,6 @@ jobs:
       - name: Build Flutter Windows release
         run: flutter build windows --release
 
-      - name: Install Inno Setup
-        run: choco install innosetup --yes
-
-      - name: Build installer
-        run: powershell -ExecutionPolicy Bypass -File scripts\build_windows_installer.ps1
-
       - name: Decode signing certificate
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\certs"
