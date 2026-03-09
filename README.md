@@ -10,7 +10,7 @@ Each net contains a list of members and information about them as needed. Fuzzy 
 ## Installation
 ### Linux
 ```bash
-sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-1.1.0-x86_64.AppImage -O /usr/local/bin/ham_net_manager
+sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-$(uname -m).AppImage -O /usr/local/bin/ham_net_manager
 sudo chmod +x /usr/local/bin/ham_net_manager
 ```
 
