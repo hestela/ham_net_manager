@@ -16,6 +16,24 @@ sudo chmod +x /usr/local/bin/ham_net_manager
 
 ### Windows
 For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app.
+#### MSIX Install
+You will need to "trust" the self-signed certificate that was used to build the MSIX file. You only need to do this once, unless the certificate gets updated.
+1. Download the certificate by [clicking here (github link)](https://github.com/hestela/ham_net_manager/raw/refs/heads/main/ham_net_manager.cer)
+2. Double-click ham_net_manager.cer
+3. "Install Certificate"
+4. Select Local Machine
+5. "Place all certificates in the following store"
+6. Browse
+7. Trusted People
+8. OK
+
+Now you can install the latest MSIX file.
+[Download Latest Windows Release](https://github.com/hestela/ham_net_manager/releases/latest/download/ham_net_manager.msix)
+In Windows 11 you can simply double click this file and it will ask if you want to install.
+For Windows 10, you will need to open powershell and either cd to the folder with the download, or put the full path to the MSIX file.  
+```powershell
+Add-AppPackage -Path .\Ham_Net_Manager-1.0.0.msix
+```
 
 ## Quick Start
 ### Prerequisites
