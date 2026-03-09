@@ -101,4 +101,5 @@ msix_config:
   msix_version: 1.0.0.0
   logo_path: windows/icons/256.png
   certificate_path: certs/ham_net_manager.pfx
+  install_certificate: false
   capabilities: ""
