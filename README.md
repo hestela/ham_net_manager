@@ -3,8 +3,8 @@
 A Flutter application for managing ham radio nets on Linux and Windows desktop platforms.  
 Each Net is contained within a sqlite database file and can be imported/exported or overwritten so that you can share the database file after checking-in people to your net.  
 Multiple Nets are supported, can switch between nets when launching the app or after selecting a different net.  
-Some persistent infromation is saved in "Your Info" to be used for template variables in the net control script.  
-Each net can have its own net control script writen in markdown, most syntax is supported including tables.  
+Some persistent information is saved in "Your Info" to be used for template variables in the net control script.  
+Each net can have its own net control script written in markdown, most syntax is supported including tables.  
 Each net contains a list of members and information about them as needed. Fuzzy search for members is enabled in the main check-in UI and in the member management.  
 
 ## Installation
@@ -106,7 +106,7 @@ Interface at startup:
 Main interface, buttons on the top right are:
 - export current check-ins for active date to csv
 - manage cities
-- manage members/vistors
+- manage members/visitors
 ![Main UI](screenshots/main-ui.webp)
 
 Net Control Script:
@@ -119,7 +119,7 @@ Net Control Script:
 Manage Cities:
 ![Manage Cities](screenshots/city-manager.webp)
 - Add/remove Cities and Neighborhoods
-- Cities and Nighborhoods are optional fields for the member information
+- Cities and Neighborhoods are optional fields for the member information
 
 Manage Members:
 ![Manage Members](screenshots/member-manager.webp)
