@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ham Net Manager
+Comment=Manage ham radio nets
+Exec=ham_net_manager
+Icon=com.hamnetmanager
+Categories=Utility;
+Terminal=false
+StartupNotify=true

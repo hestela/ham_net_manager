@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "ham_net_manager" "\0"
+            VALUE "CompanyName", "Ham Net Manager" "\0"
+            VALUE "FileDescription", "Ham Net Manager" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ham_net_manager" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Henry Estela. All rights reserved." "\0"
             VALUE "OriginalFilename", "ham_net_manager.exe" "\0"
-            VALUE "ProductName", "ham_net_manager" "\0"
+            VALUE "ProductName", "Ham Net Manager" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

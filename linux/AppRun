@@ -1,0 +1,10 @@
+#!/bin/bash
+# AppRun script for Ham Net Manager AppImage
+
+APPDIR="${APPDIR:-.}"
+
+# Flutter's engine resolves lib/ and data/ relative to the executable,
+# so we cd to $APPDIR where the binary, lib/, and data/ all live together.
+cd "$APPDIR"
+
+exec "${APPDIR}/ham_net_manager" "$@"
