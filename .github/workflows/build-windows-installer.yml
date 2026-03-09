@@ -30,10 +30,25 @@ jobs:
       - name: Build installer
         run: powershell -ExecutionPolicy Bypass -File scripts\build_windows_installer.ps1
 
+      - name: Decode signing certificate
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\certs"
+          $bytes = [Convert]::FromBase64String("${{ secrets.SIGNING_CERTIFICATE }}")
+          [IO.File]::WriteAllBytes("${{ github.workspace }}\certs\ham_net_manager.pfx", $bytes)
+
+      - name: Build signed MSIX
+        run: dart run msix:create --certificate-password "${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}"
+
+      - name: Clean up certificate
+        if: always()
+        run: Remove-Item -Force "${{ github.workspace }}\certs\ham_net_manager.pfx" -ErrorAction SilentlyContinue
+
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Ham_Net_Manager-*-Windows-Setup.exe
+          files: |
+            dist/Ham_Net_Manager-*-Windows-Setup.exe
+            build/windows/x64/runner/Release/*.msix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
