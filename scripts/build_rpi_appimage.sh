@@ -6,7 +6,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_ROOT/build"
-LINUX_BUILD_DIR="$BUILD_DIR/linux/x64/release/bundle"
+LINUX_BUILD_DIR="$BUILD_DIR/linux/arm64/release/bundle"
 APPIMAGE_BUILD_DIR="$BUILD_DIR/appimage"
 APPDIR="$APPIMAGE_BUILD_DIR/ham_net_manager.AppDir"
 OUTPUT_DIR="$PROJECT_ROOT/dist"
@@ -14,7 +14,7 @@ OUTPUT_DIR="$PROJECT_ROOT/dist"
 # Version from pubspec.yaml
 VERSION=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | awk '{print $2}' | cut -d'+' -f1)
 
-echo "Building Ham Net Manager AppImage (v$VERSION)"
+echo "Building Ham Net Manager RPi AppImage (aarch64, v$VERSION)"
 echo "=============================================="
 
 # Step 0: Sync version constant into Dart source
@@ -77,7 +77,7 @@ if ! command -v appimagetool &> /dev/null; then
 fi
 
 mkdir -p "$OUTPUT_DIR"
-APPIMAGE_NAME="Ham_Net_Manager-x86_64.AppImage"
+APPIMAGE_NAME="Ham_Net_Manager-aarch64.AppImage"
 APPIMAGE_PATH="$OUTPUT_DIR/$APPIMAGE_NAME"
 
 appimagetool "$APPDIR" "$APPIMAGE_PATH"

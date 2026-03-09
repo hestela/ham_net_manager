@@ -10,7 +10,7 @@ Each net contains a list of members and information about them as needed. Fuzzy 
 ## Installation
 ### Linux
 ```bash
-sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-1.0.0-x86_64.AppImage -O /usr/local/bin/ham_net_manager
+sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-$(uname -m).AppImage -O /usr/local/bin/ham_net_manager
 sudo chmod +x /usr/local/bin/ham_net_manager
 ```
 
@@ -32,7 +32,7 @@ Now you can install the latest MSIX file.
 In Windows 11 you can simply double click this file and it will ask if you want to install.
 For Windows 10, you will need to open powershell and either cd to the folder with the download, or put the full path to the MSIX file.  
 ```powershell
-Add-AppPackage -Path .\Ham_Net_Manager-1.0.0.msix
+Add-AppPackage -Path .\ham_net_manager.msix
 ```
 
 ## Quick Start
