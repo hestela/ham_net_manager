@@ -152,16 +152,17 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Date picking ────────────────────────────────────────────────────────────
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final highlighted = await NetRepository.loadDatesWithCheckins();
+    if (!mounted) return;
+    final picked = await _showHighlightedDatePicker(
       context: context,
       initialDate: _weekEnding,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      helpText: 'Select net date',
+      highlightedDates: highlighted,
     );
-    if (picked != null && picked != _weekEnding) {
+    if (picked != null && !_sameDay(picked, _weekEnding)) {
       _weekEnding = picked;
-      // Save the selected date
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_selected_date', _weekEnding.toIso8601String());
       await _load();
@@ -281,7 +282,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: Text('$day — ${kNetRoleLabels[role]}'),
+          title: Text(kNetRoleLabels[role]!),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,22 +302,20 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 ],
                 onChanged: (p) => setS(() => selected = p),
               ),
-              if (day == 'Other') ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: textCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Free-text (First Name/Call)',
-                    hintText: 'e.g. Jane/KG6XYZ',
-                  ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: textCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Free-text (First Name/Call)',
+                  hintText: 'e.g. Jane/KG6XYZ',
                 ),
-              ],
+              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () async {
-                await NetRepository.setNetRole(_weekId!, day, role);
+                await NetRepository.setNetRole(_weekId!, kNetRoleDay, role);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               },
               child: const Text('Clear'),
@@ -326,12 +325,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child: const Text('Cancel')),
             FilledButton(
               onPressed: () async {
-                final displayName =
-                    day == 'Other' && textCtrl.text.trim().isNotEmpty
-                        ? textCtrl.text.trim()
-                        : null;
+                final displayName = textCtrl.text.trim().isNotEmpty
+                    ? textCtrl.text.trim()
+                    : null;
                 await NetRepository.setNetRole(
-                  _weekId!, day, role,
+                  _weekId!, kNetRoleDay, role,
                   personId: selected?.id,
                   displayName: displayName,
                 );
@@ -1007,18 +1005,17 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Widget _buildNetRolesTable() {
+    final now = DateTime.now();
+    final dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    final todayLabel = '${dayNames[now.weekday % 7]} ${now.month}/${now.day}';
     return Table(
       border: TableBorder.all(color: Colors.grey.shade400),
       columnWidths: const {
         0: IntrinsicColumnWidth(),
-        1: FlexColumnWidth(),
-        2: FlexColumnWidth(),
-        3: FlexColumnWidth(),
-        4: FlexColumnWidth(),
+        1: FixedColumnWidth(200),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-        // Day headers
         TableRow(
           decoration: BoxDecoration(color: Colors.grey.shade200),
           children: [
@@ -1035,17 +1032,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child: const Text('Get Previous'),
               ),
             ),
-            ...kNetRoleDays.map((d) => Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Text(d,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center),
-                )),
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Text(todayLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center),
+            ),
           ],
         ),
-        // Net Control row
         _netRoleTableRow('net_control'),
-        // Scribe row
         _netRoleTableRow('scribe'),
       ],
     );
@@ -1059,7 +1054,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           child: Text(kNetRoleLabels[role]!,
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
-        ...kNetRoleDays.map((day) => _netRoleCell(day, role)),
+        _netRoleCell(kNetRoleDay, role),
       ],
     );
   }
@@ -1434,6 +1429,233 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
   }
 
+}
+
+// ── Custom date picker ────────────────────────────────────────────────────────
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+Future<DateTime?> _showHighlightedDatePicker({
+  required BuildContext context,
+  required DateTime initialDate,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  required Set<DateTime> highlightedDates,
+}) {
+  return showDialog<DateTime>(
+    context: context,
+    builder: (_) => _HighlightedDatePickerDialog(
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      highlightedDates: highlightedDates,
+    ),
+  );
+}
+
+class _HighlightedDatePickerDialog extends StatefulWidget {
+  const _HighlightedDatePickerDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.highlightedDates,
+  });
+
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final Set<DateTime> highlightedDates;
+
+  @override
+  State<_HighlightedDatePickerDialog> createState() =>
+      _HighlightedDatePickerDialogState();
+}
+
+class _HighlightedDatePickerDialogState
+    extends State<_HighlightedDatePickerDialog> {
+  late DateTime _displayedMonth;
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+    _displayedMonth =
+        DateTime(widget.initialDate.year, widget.initialDate.month, 1);
+  }
+
+  bool _isHighlighted(DateTime day) =>
+      widget.highlightedDates.any((d) => _sameDay(d, day));
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final primary = colorScheme.primary;
+    final today = DateTime.now();
+
+    final year = _displayedMonth.year;
+    final month = _displayedMonth.month;
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    // Sunday = 0 offset (DateTime.monday==1 … DateTime.sunday==7, so %7 maps sunday→0)
+    final leadingBlanks = DateTime(year, month, 1).weekday % 7;
+
+    final canGoPrev = DateTime(year, month - 1 + 1, 0)
+        .isAfter(widget.firstDate.subtract(const Duration(days: 1)));
+    final canGoNext =
+        DateTime(year, month + 1, 1).isBefore(widget.lastDate.add(const Duration(days: 1)));
+
+    return AlertDialog(
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Month navigation
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: canGoPrev
+                      ? () => setState(() => _displayedMonth =
+                          DateTime(year, month - 1, 1))
+                      : null,
+                ),
+                Text(
+                  '${_monthName(month)} $year',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: canGoNext
+                      ? () => setState(() => _displayedMonth =
+                          DateTime(year, month + 1, 1))
+                      : null,
+                ),
+              ],
+            ),
+            // Day-of-week headers
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+                  .map((d) => SizedBox(
+                        width: 36,
+                        child: Center(
+                          child: Text(d,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 4),
+            // Calendar grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 2,
+                crossAxisSpacing: 2,
+              ),
+              itemCount: leadingBlanks + daysInMonth,
+              itemBuilder: (context, index) {
+                if (index < leadingBlanks) return const SizedBox.shrink();
+                final day = index - leadingBlanks + 1;
+                final date = DateTime(year, month, day);
+                final inRange = !date.isBefore(widget.firstDate) &&
+                    !date.isAfter(widget.lastDate);
+                final isSelected = _sameDay(date, _selectedDate);
+                final isToday = _sameDay(date, today);
+                final highlighted = _isHighlighted(date);
+
+                return GestureDetector(
+                  onTap: inRange
+                      ? () => setState(() => _selectedDate = date)
+                      : null,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isSelected)
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: primary,
+                        ),
+                      if (isToday && !isSelected)
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.transparent,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: primary, width: 1.5),
+                            ),
+                          ),
+                        ),
+                      Text(
+                        '$day',
+                        style: TextStyle(
+                          color: isSelected
+                              ? colorScheme.onPrimary
+                              : !inRange
+                                  ? colorScheme.onSurface.withValues(alpha: 0.3)
+                                  : colorScheme.onSurface,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (highlighted && !isSelected)
+                        Positioned(
+                          bottom: 4,
+                          child: Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: primary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_selectedDate),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+
+  String _monthName(int month) => const [
+        '',
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ][month];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
