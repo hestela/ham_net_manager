@@ -158,6 +158,19 @@ class NetRepository {
     return _db.insert('weeks', {'week_ending': dateStr});
   }
 
+  /// Returns the set of dates (normalized to midnight) that have at least
+  /// one check-in recorded.
+  static Future<Set<DateTime>> loadDatesWithCheckins() async {
+    final rows = await _db.rawQuery('''
+      SELECT DISTINCT w.week_ending
+      FROM weeks w
+      WHERE EXISTS (SELECT 1 FROM checkins c WHERE c.week_id = w.id)
+    ''');
+    return {
+      for (final row in rows) DateTime.parse(row['week_ending'] as String),
+    };
+  }
+
   // ── Check-ins ─────────────────────────────────────────────────────────────
 
   /// Returns methods for the given week.
