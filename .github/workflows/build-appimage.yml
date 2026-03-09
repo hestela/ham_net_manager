@@ -21,7 +21,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y appimagetool libgtk-3-dev libsecret-1-dev
+          sudo apt-get install -y libgtk-3-dev libsecret-1-dev libfuse2
+
+      - name: Install appimagetool
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+          chmod +x /usr/local/bin/appimagetool
 
       - name: Get Flutter dependencies
         run: flutter pub get

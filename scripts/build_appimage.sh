@@ -72,7 +72,7 @@ chmod +x "$APPDIR/AppRun"
 echo "Step 7: Building AppImage..."
 if ! command -v appimagetool &> /dev/null; then
     echo "ERROR: appimagetool not found!"
-    echo "Install it with: sudo apt install appimagetool"
+    echo "Download it from: https://github.com/AppImage/appimagetool/releases/latest"
     exit 1
 fi
 
