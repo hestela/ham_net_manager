@@ -19,7 +19,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
-          architecture: arm64
           cache: true
 
       - name: Install dependencies
