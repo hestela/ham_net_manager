@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 
@@ -53,3 +54,12 @@ Future<String?> pickDatabaseFile() async {
   if (result == null || result.files.isEmpty) return null;
   return result.files.single.path;
 }
+
+/// No-op on desktop — web only.
+void saveDatabaseFile(String filename, Uint8List bytes) {}
+
+/// No-op on desktop — web only.
+Future<Uint8List?> exportWebDatabaseBytes(String dbName) async => null;
+
+/// No-op on desktop — web only.
+Future<void> deleteWebDatabase(String dbName) async {}

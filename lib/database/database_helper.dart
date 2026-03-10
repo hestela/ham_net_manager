@@ -6,11 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_database.dart';
 import 'database_helper_io.dart'
     if (dart.library.html) 'database_helper_web.dart';
+import '../utils/file_io.dart';
 
 class DatabaseHelper {
   static AppDatabase? _db;
   static String? _dbPath;
   static String? _currentCity;
+  static String? _currentSlug;
 
   static AppDatabase get db {
     if (_db == null) {
@@ -60,6 +62,7 @@ class DatabaseHelper {
     if (_db != null) return _db!;
 
     final slug = _toSlug(netName);
+    _currentSlug = slug;
     String? filePath;
 
     final dirPath = await platformGetAppDirectoryPath();
@@ -100,6 +103,7 @@ class DatabaseHelper {
       // Desktop: use the file path.
       _dbPath = path;
       final slug = p.basenameWithoutExtension(path);
+      _currentSlug = slug;
       _db = openAppDatabase(name: slug, filePath: path);
 
       // If outside app directory, save to recent databases list.
@@ -108,7 +112,8 @@ class DatabaseHelper {
       }
     } else {
       // Web: path is the net name; slugify for the OPFS key.
-      _db = openAppDatabase(name: _toSlug(path));
+      _currentSlug = _toSlug(path);
+      _db = openAppDatabase(name: _currentSlug!);
     }
 
     await _loadCurrentCity();
@@ -120,6 +125,7 @@ class DatabaseHelper {
     _db = null;
     _dbPath = null;
     _currentCity = null;
+    _currentSlug = null;
   }
 
   /// Updates the net name stored in settings.
@@ -149,6 +155,49 @@ class DatabaseHelper {
       'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
       variables: [Variable<String>(key), Variable<String>(value)],
     );
+  }
+
+  /// Exports the current web database as raw .sqlite bytes.
+  /// Returns null on desktop (use file path directly) or if OPFS unavailable.
+  static Future<Uint8List?> exportDatabaseBytes() async {
+    if (!kIsWeb || _db == null || _currentSlug == null) return null;
+    final slug = _currentSlug!;
+    await close();
+    final bytes = await exportWebDatabaseBytes(slug);
+    // Reopen the database after reading.
+    _db = openAppDatabase(name: slug);
+    await _loadCurrentCity();
+    return bytes;
+  }
+
+  /// Imports a .sqlite file as the current database on web.
+  /// Closes the current DB, deletes it from OPFS, reopens with the new bytes.
+  static Future<void> importDatabase(String netName, Uint8List bytes) async {
+    final slug = _toSlug(netName);
+    await close();
+    await deleteWebDatabase(slug);
+    _currentSlug = slug;
+    _db = openAppDatabase(
+      name: slug,
+      initializeDatabase: () => bytes,
+    );
+    // Trigger schema check / migration by querying.
+    await _loadCurrentCity();
+    _currentCity = netName;
+
+    // Store the net name in settings.
+    try {
+      await _db!.customInsert(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('net_name', ?)",
+        variables: [Variable<String>(netName)],
+      );
+    } catch (_) {}
+
+    // Save to web_databases pref list.
+    final prefs = await SharedPreferences.getInstance();
+    final list =
+        (prefs.getStringList(_webDatabasesPrefKey) ?? []).toSet()..add(netName);
+    await prefs.setStringList(_webDatabasesPrefKey, list.toList());
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
@@ -138,7 +140,12 @@ class AppDatabase extends _$AppDatabase {
 /// Opens (or creates) a drift database.
 /// On desktop: [filePath] is the absolute path to the .sqlite file.
 /// On web: [name] is used as the OPFS key; [filePath] is ignored.
-AppDatabase openAppDatabase({required String name, String? filePath}) {
+/// [initializeDatabase] optionally provides initial bytes for a new web DB.
+AppDatabase openAppDatabase({
+  required String name,
+  String? filePath,
+  FutureOr<Uint8List?> Function()? initializeDatabase,
+}) {
   return AppDatabase(driftDatabase(
     name: name,
     native: filePath != null
@@ -147,6 +154,7 @@ AppDatabase openAppDatabase({required String name, String? filePath}) {
     web: DriftWebOptions(
       sqlite3Wasm: Uri.parse('sqlite3.wasm'),
       driftWorker: Uri.parse('drift_worker.js'),
+      initializeDatabase: initializeDatabase,
     ),
   ));
 }

@@ -1,4 +1,5 @@
 import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -598,6 +599,20 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
               subtitle: const Text('Export to a different location'),
               onTap: _saveDatabaseAs,
             ),
+          if (kIsWeb) ...[
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Export Database'),
+              subtitle: const Text('Download as .sqlite file'),
+              onTap: _exportDatabase,
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload),
+              title: const Text('Import Database'),
+              subtitle: const Text('Load a .sqlite file'),
+              onTap: _importDatabase,
+            ),
+          ],
           const Divider(),
           ListTile(
             leading: Icon(Icons.delete_outline,
@@ -868,6 +883,105 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to save: $e')),
+      );
+    }
+  }
+
+  Future<void> _exportDatabase() async {
+    Navigator.of(context).pop(); // close drawer
+    try {
+      final bytes = await DatabaseHelper.exportDatabaseBytes();
+      if (bytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Export not available.')),
+        );
+        return;
+      }
+      final city = DatabaseHelper.currentCity;
+      final filename = city.isNotEmpty
+          ? '${city.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}-weekly-net.sqlite'
+          : 'database.sqlite';
+      saveDatabaseFile(filename, bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Database exported.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _importDatabase() async {
+    Navigator.of(context).pop(); // close drawer
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null) return;
+
+      // Infer net name from filename, or prompt user.
+      String netName = file.name
+          .replaceAll(RegExp(r'\.sqlite$'), '')
+          .replaceAll('-weekly-net', '')
+          .replaceAll(RegExp(r'[-_]+'), ' ')
+          .trim();
+
+      if (!mounted) return;
+      final ctrl = TextEditingController(text: netName);
+      final confirmedName = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Import Database'),
+          content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(labelText: 'Net name'),
+            textCapitalization: TextCapitalization.words,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Import'),
+            ),
+          ],
+        ),
+      );
+      ctrl.dispose();
+
+      if (confirmedName == null || confirmedName.isEmpty || !mounted) return;
+
+      await DatabaseHelper.importDatabase(confirmedName, bytes);
+      if (!mounted) return;
+
+      setState(() {
+        _weekEnding = _defaultWeekEnding();
+        _weekId = null;
+        _persons = [];
+        _checkins = {};
+        _netRoles = {};
+      });
+      await _load();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Imported "$confirmedName" successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
       );
     }
   }
