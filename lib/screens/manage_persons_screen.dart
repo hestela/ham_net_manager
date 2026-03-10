@@ -1,12 +1,10 @@
-import 'dart:io';
-
 import 'package:csv/csv.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/person.dart';
 import '../repositories/net_repository.dart';
+import '../utils/file_io.dart';
 
 class ManagePersonsScreen extends StatefulWidget {
   const ManagePersonsScreen({super.key});
@@ -195,14 +193,6 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   }
 
   Future<void> _exportCsv() async {
-    final savePath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Export members to CSV',
-      fileName: 'members.csv',
-      allowedExtensions: ['csv'],
-      type: FileType.custom,
-    );
-    if (savePath == null) return;
-
     final rows = <List<dynamic>>[
       ['first_name', 'last_name', 'fcc_callsign', 'gmrs_callsign', 'member', 'city', 'neighborhood'],
       ..._persons.map((p) => [
@@ -217,25 +207,18 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     ];
 
     final csv = const CsvEncoder().convert(rows);
-    await File(savePath).writeAsString(csv);
+    final savedPath = await saveCsvFile('members.csv', csv);
+    if (savedPath == null) return;
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exported ${_persons.length} members to $savePath')),
+      SnackBar(content: Text('Exported ${_persons.length} members.')),
     );
   }
 
   Future<void> _importCsv() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-    );
-    if (result == null || result.files.isEmpty) return;
-
-    final path = result.files.single.path;
-    if (path == null) return;
-
-    final content = await File(path).readAsString();
+    final content = await pickCsvContent();
+    if (content == null) return;
     final rows = const CsvDecoder().convert(content);
     if (rows.length < 2) {
       if (mounted) {

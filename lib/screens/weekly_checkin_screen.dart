@@ -1,7 +1,5 @@
-import 'dart:io';
-
 import 'package:csv/csv.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -11,6 +9,7 @@ import '../app_version.dart';
 import '../database/database_helper.dart';
 import '../models/person.dart';
 import '../repositories/net_repository.dart';
+import '../utils/file_io.dart';
 import 'manage_cities_screen.dart';
 import 'manage_persons_screen.dart';
 import 'net_control_script_dialog.dart';
@@ -212,20 +211,13 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final csv = const CsvEncoder().convert([header, ...rows]);
 
     final sanitizedNetName = _sanitizeFilename(DatabaseHelper.currentCity);
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Export CSV',
-      fileName: '$sanitizedNetName-$dateStr.csv',
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-    );
-    if (result == null) return;
-
-    final file = File(result);
-    await file.writeAsString(csv);
+    final savedPath =
+        await saveCsvFile('$sanitizedNetName-$dateStr.csv', csv);
+    if (savedPath == null) return;
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported ${rows.length} check-ins to ${p.basename(result)}')),
+        SnackBar(content: Text('Exported ${rows.length} check-ins.')),
       );
     }
   }
@@ -599,12 +591,13 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             subtitle: const Text('Switch to a different Net/City'),
             onTap: _switchDatabase,
           ),
-          ListTile(
-            leading: const Icon(Icons.save_as),
-            title: const Text('Save Database As...'),
-            subtitle: const Text('Export to a different location'),
-            onTap: _saveDatabaseAs,
-          ),
+          if (!kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.save_as),
+              title: const Text('Save Database As...'),
+              subtitle: const Text('Export to a different location'),
+              onTap: _saveDatabaseAs,
+            ),
           const Divider(),
           ListTile(
             leading: Icon(Icons.delete_outline,
@@ -768,7 +761,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final existing = await DatabaseHelper.findExistingDatabases();
     if (!mounted) return;
 
-    final currentPath = DatabaseHelper.dbPath;
+    // On web, identify the current DB by net name; on desktop by file path.
+    final currentId =
+        kIsWeb ? DatabaseHelper.currentCity : DatabaseHelper.dbPath;
 
     final chosen = await showDialog<String>(
       context: context,
@@ -785,34 +780,39 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 8),
                 ...existing.map((path) {
-                  final isCurrent = path == currentPath;
+                  final isCurrent = path == currentId;
+                  final title =
+                      kIsWeb ? path : p.basenameWithoutExtension(path);
                   return ListTile(
                     leading: Icon(
                       isCurrent ? Icons.check_circle : Icons.storage,
                       color: isCurrent ? Colors.green : null,
                     ),
                     title: Text(
-                      p.basenameWithoutExtension(path),
+                      title,
                       style: TextStyle(
                         fontFamily: 'monospace',
                         fontWeight: isCurrent ? FontWeight.bold : null,
                       ),
                     ),
-                    subtitle: Text(path,
-                        style: const TextStyle(fontSize: 11),
-                        overflow: TextOverflow.ellipsis),
+                    subtitle: kIsWeb
+                        ? null
+                        : Text(path,
+                            style: const TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis),
                     enabled: !isCurrent,
                     onTap: () => Navigator.pop(ctx, path),
                   );
                 }),
                 const Divider(height: 24),
               ],
-              ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('Open database file...'),
-                subtitle: const Text('Import a .sqlite file from elsewhere'),
-                onTap: () => Navigator.pop(ctx, '_pick_file_'),
-              ),
+              if (!kIsWeb)
+                ListTile(
+                  leading: const Icon(Icons.folder_open),
+                  title: const Text('Open database file...'),
+                  subtitle: const Text('Import a .sqlite file from elsewhere'),
+                  onTap: () => Navigator.pop(ctx, '_pick_file_'),
+                ),
             ],
           ),
         ),
@@ -827,17 +827,13 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     if (chosen == null || !mounted) return;
 
-    String? pathToOpen;
+    String pathToOpen;
 
     if (chosen == '_pick_file_') {
-      final result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Open Database File',
-        type: FileType.any,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      pathToOpen = result.files.single.path;
-      if (pathToOpen == null) return;
+      // Desktop-only: let user pick a file with FilePicker.
+      final result = await _pickDatabaseFile();
+      if (result == null) return;
+      pathToOpen = result;
     } else {
       pathToOpen = chosen;
     }
@@ -862,18 +858,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final sourcePath = DatabaseHelper.dbPath;
     if (sourcePath.isEmpty) return;
 
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save Database As',
-      fileName: p.basename(sourcePath),
-      type: FileType.any,
-    );
-    if (result == null) return;
-
     try {
-      await File(sourcePath).copy(result);
-      if (!mounted) return;
+      final success = await saveDatabaseCopy(sourcePath);
+      if (!success || !mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Database saved to $result')),
+        const SnackBar(content: Text('Database saved.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -883,10 +872,14 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     }
   }
 
+  Future<String?> _pickDatabaseFile() => pickDatabaseFile();
+
   Future<void> _removeCurrentDatabase() async {
     Navigator.of(context).pop(); // close drawer
 
-    final path = DatabaseHelper.dbPath;
+    // On web: key is the net name; on desktop: key is the file path.
+    final key =
+        kIsWeb ? DatabaseHelper.currentCity : DatabaseHelper.dbPath;
     final name = DatabaseHelper.currentCity;
 
     final result = await showDialog<_RemoveAction>(
@@ -903,14 +896,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             onPressed: () => Navigator.pop(ctx, _RemoveAction.hideOnly),
             child: const Text('Remove from list'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Theme.of(ctx).colorScheme.onError,
+          if (!kIsWeb)
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+                foregroundColor: Theme.of(ctx).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(ctx, _RemoveAction.deleteFile),
+              child: const Text('Delete file'),
             ),
-            onPressed: () => Navigator.pop(ctx, _RemoveAction.deleteFile),
-            child: const Text('Delete file'),
-          ),
         ],
       ),
     );
@@ -919,7 +913,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     await DatabaseHelper.close();
     await DatabaseHelper.removeDatabase(
-      path,
+      key,
       deleteFile: result == _RemoveAction.deleteFile,
     );
 
