@@ -13,6 +13,7 @@ Each net contains a list of members and information about them as needed. Fuzzy 
 sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-$(uname -m).AppImage -O /usr/local/bin/ham_net_manager
 sudo chmod +x /usr/local/bin/ham_net_manager
 ```
+aarch64 and x86_64 releases are available. App has been tested on Raspberry Pi 4 with Raspberry Pi OS 13 and on Debian 13.
 
 ### Windows
 For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app.
