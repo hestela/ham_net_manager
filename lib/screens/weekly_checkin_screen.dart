@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -515,21 +517,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           ),
           // ── Script side panel ──────────────────────────────────────
           if (_scriptPanelOpen) ...[
-            MouseRegion(
-              cursor: SystemMouseCursors.resizeColumn,
-              child: GestureDetector(
-                onHorizontalDragUpdate: (details) {
-                  setState(() {
-                    _scriptPanelWidth =
-                        (_scriptPanelWidth - details.delta.dx).clamp(250, 800);
-                  });
-                },
-                child: Container(
-                  width: 6,
-                  color: Colors.grey.shade300,
-                ),
-              ),
-            ),
+            _buildResizeDivider(),
             SizedBox(
               width: _scriptPanelWidth,
               child: NetControlScriptPanel(
@@ -540,6 +528,45 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         ],
       ),
       ),
+    );
+  }
+
+  // ── Script panel resize divider ────────────────────────────────────────────
+
+  Widget _buildResizeDivider() {
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final dividerWidth = isAndroid ? 28.0 : 6.0;
+
+    final handle = GestureDetector(
+      onHorizontalDragUpdate: (details) {
+        setState(() {
+          _scriptPanelWidth =
+              (_scriptPanelWidth - details.delta.dx).clamp(250, 800);
+        });
+      },
+      child: Container(
+        width: dividerWidth,
+        color: Colors.grey.shade300,
+        child: isAndroid
+            ? Center(
+                child: Container(
+                  width: 4,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade500,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              )
+            : null,
+      ),
+    );
+
+    if (isAndroid) return handle;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: handle,
     );
   }
 
