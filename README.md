@@ -13,10 +13,10 @@ A Flutter application for managing ham radio nets on Linux (including Raspberry 
 ## Web Version
 
 A web build is available at [hestela.github.io/ham_net_manager](https://hestela.github.io/ham_net_manager/).  
-It stores all data within your web browser using the [Origin Private File System (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
-The web interface can export/import SQLite files compatible with desktop versions. 
+It stores all data within your web browser using the [Origin Private File System (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).  
+The web interface can export/import SQLite files compatible with desktop versions.  
 **Note:** You may want to export the SQLite file after each session, as browser data can be lost (e.g., if your device is low on space, the browser may wipe the data).  
-The web interface works on all modern browsers and platforms, including Firefox on Android (tablet recommended). 
+The web interface should work on all modern browsers/OS.
 
 **Limitation:** Internet connection required unless you self-host the app on a webserver in your LAN such as with nginx (HTTPS required due to some of the web technologies used).
 
@@ -57,38 +57,39 @@ Add-AppPackage -Path .\ham_net_manager.msix
 See [BUILDING.md](docs/BUILDING.md) for how to build for the different platforms, but you mainly use the flutter command to build/test the app.
 
 ## Screenshots / Manual
-Interface at startup:
+### Startup Interface
 - Can create a new net/database 
 - Remove and optionally delete a net
 ![Startup](screenshots/startup.webp)
 
-Main interface, buttons on the top right are:
+## Main Interface
+buttons on the top right are:
 - export current check-ins for active date to csv
 - manage cities
 - manage members/visitors
 ![Main UI](screenshots/main-ui.webp)
 
-Net Control Script:
+### Net Control Script
 - Click the net control script button to show/hide
 - Written with markdown
 - Supports a few template variables (like your name, callsign and net name) so that you can substitute your callsign into the net control script. See the (?) help button for more info.
 - Click on the pencil icon to edit the script, script is unique to each city/database
 ![Net Control Script](screenshots/net-control-script.webp)
 
-Manage Cities:
-![Manage Cities](screenshots/city-manager.webp)
+### Manage Cities
 - Add/remove Cities and Neighborhoods
 - Cities and Neighborhoods are optional fields for the member information
+![Manage Cities](screenshots/city-manager.webp)
 
-Manage Members:
-![Manage Members](screenshots/member-manager.webp)
+### Manage Members
 - Fuzzy search on all fields (click esc to clear search)
 - "Members" have a star next to their name and Guests/Visitors have the person icon.
 - add/remove/edit members here
 - can import/export member information via csv
 - When importing members, missing cities/neighborhoods will be created. Make sure that your city and neighborhood names don't have typos or small variations otherwise you will have duplicates.
+![Manage Members](screenshots/member-manager.webp)
 
-Navigation Menu:
+### Navigation Menu
 the icon at the top left of the main check-in UI has a so called "hamburger menu" (the 3 stacked lines) which has:
 - Your Info (used for net control script mainly)
 - Rename Net
@@ -96,11 +97,12 @@ the icon at the top left of the main check-in UI has a so called "hamburger menu
 - Switch Database (switch to previously setup net)
 - Save Database As (to export sqlite database to a new location)
 - Remove current database (to remove current net from history and optionally delete sqlite database file)
-![Navigation](screenshots/navigation.webp)
+<img src="screenshots/navigation.webp" width="350" />
 
-Switch Database/Net:
-![Switch Net](screenshots/switch-net.webp)
+### Switch Database/Net
+<img src="screenshots/switch-net.webp" width="350" />
 
-Your Info:
+### Your Info
 All fields are optional. This data persists between sessions and nets (it is stored in its own json file).
-![Your Info](screenshots/your-info.webp)
+<img src="screenshots/your-info.webp" width="350" />
+
