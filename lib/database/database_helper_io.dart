@@ -31,7 +31,7 @@ Future<List<String>> platformFindExistingDatabases() async {
       (prefs.getStringList(_recentDatabasesPrefKey) ?? []).toSet();
   final existingRecentPaths = <String>[];
   for (final path in recentPaths) {
-    if (await File(path).exists()) {
+    if (File(path).existsSync()) {
       existingRecentPaths.add(path);
     }
   }
@@ -45,7 +45,7 @@ Future<void> platformRemoveDatabase(String path,
     {bool deleteFile = false}) async {
   if (deleteFile) {
     final file = File(path);
-    if (await file.exists()) await file.delete();
+    if (file.existsSync()) await file.delete();
   } else {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final Set<String> hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet()

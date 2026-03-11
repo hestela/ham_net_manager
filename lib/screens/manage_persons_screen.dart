@@ -108,7 +108,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'CSV format help',
-            onPressed: () => showDialog(
+            onPressed: () => showDialog<void>(
               context: context,
               builder: (_) => const _CsvHelpDialog(),
             ),
@@ -219,7 +219,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   Future<void> _importCsv() async {
     final String? content = await pickCsvContent();
     if (content == null) return;
-    final List<dynamic> rows = const CsvDecoder().convert(content);
+    final List<List<dynamic>> rows = const CsvDecoder().convert(content);
     if (rows.length < 2) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -231,7 +231,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
 
     // Detect column mapping from header row
     final List<String> headers =
-        rows.first.map((h) => h.toString().trim().toLowerCase()).toList();
+        rows.first.map((dynamic h) => h.toString().trim().toLowerCase()).toList();
     final Map<String, int> mapping = _detectColumns(headers);
     if (!mapping.containsKey('first_name')) {
       if (mounted) {

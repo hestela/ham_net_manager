@@ -134,7 +134,7 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
                 IconButton(
                   icon: const Icon(Icons.help_outline, size: 20),
                   tooltip: 'Help',
-                  onPressed: () => showDialog(
+                  onPressed: () => showDialog<void>(
                     context: context,
                     builder: (_) => const _TemplateHelpDialog(),
                   ),

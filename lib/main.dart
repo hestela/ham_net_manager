@@ -51,12 +51,12 @@ class _StartupScreenState extends State<_StartupScreen> {
       await DatabaseHelper.openExisting(existing.first);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const WeeklyCheckinScreen()),
+        MaterialPageRoute<void>(builder: (_) => const WeeklyCheckinScreen()),
       );
     } else {
       // No databases, or multiple to choose from — show setup.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => SetupScreen(existingPaths: existing)),
+        MaterialPageRoute<void>(builder: (_) => SetupScreen(existingPaths: existing)),
       );
     }
   }

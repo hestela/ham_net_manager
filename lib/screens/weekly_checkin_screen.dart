@@ -398,7 +398,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             icon: const Icon(Icons.location_city),
             tooltip: 'Manage Cities',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ManageCitiesScreen()),
+              MaterialPageRoute<void>(builder: (_) => const ManageCitiesScreen()),
             ),
           ),
           IconButton(
@@ -406,7 +406,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             tooltip: 'Manage Members',
             onPressed: () async {
               await Navigator.of(context).push(
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
                     builder: (_) => const ManagePersonsScreen()),
               );
               _load(); // refresh in case persons changed
@@ -1067,7 +1067,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final List<String> existing = await DatabaseHelper.findExistingDatabases();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => SetupScreen(existingPaths: existing),
       ),
     );
@@ -1425,7 +1425,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Widget _buildTotalsRow(List<Person> persons, {double extraW = 0}) {
     final counts = <String, int>{};
     for (final p in persons) {
-      for (final m in _checkins[p.id] ?? {}) {
+      for (final String m in _checkins[p.id] ?? <String>{}) {
         counts[m] = (counts[m] ?? 0) + 1;
       }
     }

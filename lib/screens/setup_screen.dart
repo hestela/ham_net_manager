@@ -128,7 +128,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void _goHome() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const WeeklyCheckinScreen()),
+      MaterialPageRoute<void>(builder: (_) => const WeeklyCheckinScreen()),
     );
   }
 
