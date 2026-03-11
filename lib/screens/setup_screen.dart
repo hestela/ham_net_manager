@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../database/database_helper.dart';
+import '../utils/file_io.dart';
 import 'weekly_checkin_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -96,6 +97,12 @@ class _SetupScreenState extends State<SetupScreen> {
       deleteFile: result == _RemoveAction.deleteFile,
     );
     setState(() => _paths.remove(path));
+  }
+
+  Future<void> _pickAndLoad() async {
+    final path = await pickDatabaseFile();
+    if (path == null) return;
+    await _openExisting(path);
   }
 
   Future<void> _createNew() async {
@@ -202,6 +209,19 @@ class _SetupScreenState extends State<SetupScreen> {
                         onPressed: _createNew,
                         child: const Text('Create'),
                       ),
+                      if (!kIsWeb) ...[
+                        const Divider(height: 32),
+                        Text(
+                          'Load existing database',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _pickAndLoad,
+                          icon: const Icon(Icons.folder_open),
+                          label: const Text('Open database file...'),
+                        ),
+                      ],
                     ],
                   ),
           ),
