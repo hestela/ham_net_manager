@@ -23,7 +23,6 @@ import 'setup_screen.dart';
 const _wGmrs = 95.0;
 const _wCall = 95.0;
 const _wName = 135.0;
-const _wMember = 62.0;
 const _wMethod = 88.0; // ×6
 const _wCity = 105.0;
 const _wNeighborhood = 150.0;
@@ -32,7 +31,6 @@ const _wCheckedIn = 58.0;
 const _totalTableWidth = _wGmrs +
     _wCall +
     _wName +
-    _wMember +
     _wMethod * 6 +
     _wCity +
     _wNeighborhood +
@@ -43,7 +41,7 @@ const _rowH = 42.0;
 
 // ── Sort columns ──────────────────────────────────────────────────────────────
 
-enum _SortColumn { callSign, name, member, city }
+enum _SortColumn { callSign, name, city }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -140,9 +138,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           case _SortColumn.name:
             cmp = a.displayName.toLowerCase().compareTo(
                 b.displayName.toLowerCase());
-          case _SortColumn.member:
-            // Members first when ascending
-            cmp = (b.isMember ? 1 : 0) - (a.isMember ? 1 : 0);
           case _SortColumn.city:
             cmp = (a.city ?? '').compareTo(b.city ?? '');
         }
@@ -187,7 +182,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       'GMRS Callsign',
       'FCC Callsign',
       'Name',
-      'Member',
       ...kCheckInMethods.map((m) => kMethodLabels[m]!.replaceAll('\n', ' ')),
       'City',
       'Neighborhood',
@@ -203,7 +197,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         person.gmrsCallsign ?? '',
         person.fccCallsign ?? '',
         person.displayName,
-        person.isMember ? 'Yes' : 'No',
         ...kCheckInMethods.map((m) => methods.contains(m) ? 'X' : ''),
         person.city ?? '',
         person.neighborhood ?? '',
@@ -1275,8 +1268,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           _sortableHdrCell('Call Sign', _wCall, style, _SortColumn.callSign),
           _sortableHdrCell(
               'First Name +\nInitial', _wName, style, _SortColumn.name),
-          _sortableHdrCell(
-              'Member', _wMember, style, _SortColumn.member, center: true),
           ...kCheckInMethods
               .map((m) => _hdrCell(kMethodLabels[m]!, _wMethod, style, center: true)),
           _sortableHdrCell('City', _wCity, style, _SortColumn.city),
@@ -1362,7 +1353,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           _dataCell(person.fccCallsign ?? '', _wCall,
               bold: true),
           _dataCell(person.displayName, _wName),
-          _dataCell(person.isMember ? 'X' : '', _wMember, center: true),
           ...kCheckInMethods.map(
               (m) => _methodCell(person, m, methods.contains(m))),
           _dataCell(person.city ?? '', _wCity),
@@ -1450,7 +1440,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       ),
       child: Row(
         children: [
-          SizedBox(width: _wGmrs + _wCall + _wName + _wMember),
+          SizedBox(width: _wGmrs + _wCall + _wName),
           ...kCheckInMethods.map((m) => Container(
                 width: _wMethod,
                 decoration: BoxDecoration(
