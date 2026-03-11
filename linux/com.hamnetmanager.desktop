@@ -4,6 +4,6 @@ Name=Ham Net Manager
 Comment=Manage ham radio nets
 Exec=ham_net_manager
 Icon=com.hamnetmanager
-Categories=Utility;
+Categories=Utility;HamRadio;
 Terminal=false
 StartupNotify=true
