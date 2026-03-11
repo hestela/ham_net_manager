@@ -15,6 +15,25 @@ My name is **{user_first_name} {user_last_name}**, callsign **{user_callsign}**.
 *Edit this script using the pencil button above.*
 ''';
 
+const _natoAlphabet = {
+  'A': 'Alpha',   'B': 'Bravo',   'C': 'Charlie', 'D': 'Delta',
+  'E': 'Echo',    'F': 'Foxtrot', 'G': 'Golf',    'H': 'Hotel',
+  'I': 'India',   'J': 'Juliet',  'K': 'Kilo',    'L': 'Lima',
+  'M': 'Mike',    'N': 'November','O': 'Oscar',   'P': 'Papa',
+  'Q': 'Quebec',  'R': 'Romeo',   'S': 'Sierra',  'T': 'Tango',
+  'U': 'Uniform', 'V': 'Victor',  'W': 'Whiskey', 'X': 'X-ray',
+  'Y': 'Yankee',  'Z': 'Zulu',
+  '0': 'Zero',    '1': 'One',     '2': 'Two',     '3': 'Three',
+  '4': 'Four',    '5': 'Five',    '6': 'Six',     '7': 'Seven',
+  '8': 'Eight',   '9': 'Nine',
+};
+
+String _toPhonetic(String callsign) => callsign
+    .toUpperCase()
+    .split('')
+    .map((c) => _natoAlphabet[c] ?? c)
+    .join(' ');
+
 /// A side panel widget for displaying / editing the net control script.
 class NetControlScriptPanel extends StatefulWidget {
   final VoidCallback onClose;
@@ -48,10 +67,12 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
     final script = await DatabaseHelper.getSetting('net_control_script') ??
         defaultNetControlScript;
     final prefs = await SharedPreferences.getInstance();
+    final callsign = prefs.getString('user_callsign') ?? '';
     _templateVars = {
       'user_first_name': prefs.getString('user_first_name') ?? '',
       'user_last_name': prefs.getString('user_last_name') ?? '',
-      'user_callsign': prefs.getString('user_callsign') ?? '',
+      'user_callsign': callsign,
+      'user_callsign_phonetic': _toPhonetic(callsign),
       'net_name': DatabaseHelper.currentCity,
     };
     setState(() {
@@ -191,7 +212,7 @@ class _TemplateHelpDialog extends StatelessWidget {
     return AlertDialog(
       title: const Text('Net Control Script Help'),
       content: SizedBox(
-        width: 420,
+        width: 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,6 +230,8 @@ class _TemplateHelpDialog extends StatelessWidget {
             _row('{user_first_name}', 'Your first name (from Your Info)'),
             _row('{user_last_name}', 'Your last name (from Your Info)'),
             _row('{user_callsign}', 'Your callsign (from Your Info)'),
+            _row('{user_callsign_phonetic}',
+                'Callsign spelled out in NATO phonetics (e.g. Kilo Echo Six X-ray Golf)'),
             _row('{net_name}', 'Current net / city name'),
             const SizedBox(height: 12),
             const Text(
@@ -248,7 +271,7 @@ class _TemplateHelpDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 160,
+              width: 200,
               child: SelectableText(
                 variable,
                 style: const TextStyle(
