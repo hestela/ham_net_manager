@@ -1,5 +1,6 @@
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:drift/drift.dart';
 
+import '../database/app_database.dart';
 import '../database/database_helper.dart';
 import '../models/person.dart';
 
@@ -23,56 +24,88 @@ const kNetRoles = ['net_control', 'scribe'];
 const kNetRoleLabels = {'net_control': 'Net Control:', 'scribe': 'Scribe:'};
 
 class NetRepository {
-  static Database get _db => DatabaseHelper.db;
+  static AppDatabase get _db => DatabaseHelper.db;
 
-  // ── Persons ──────────────────────────────────────────────────────────────
+  // ── Variable helper ────────────────────────────────────────────────────────
+
+  static List<Variable<Object>> _vars(List<dynamic>? args) {
+    if (args == null) return const [];
+    return args.map<Variable<Object>>((a) {
+      if (a == null) return const Variable(null);
+      if (a is int) return Variable<int>(a);
+      if (a is double) return Variable<double>(a);
+      if (a is bool) return Variable<bool>(a);
+      return Variable<String>(a.toString());
+    }).toList();
+  }
+
+  // ── Persons ────────────────────────────────────────────────────────────────
 
   /// Loads persons ordered by name. Pass [activeOnly: false] to include
   /// inactive persons (used by the manage-members screen).
   static Future<List<Person>> loadPersons({bool activeOnly = true}) async {
-    final rows = await _db.query(
-      'persons',
-      where: activeOnly ? 'is_active = 1' : null,
-      orderBy: 'last_name COLLATE NOCASE, first_name COLLATE NOCASE',
-    );
-    return rows.map(Person.fromMap).toList();
+    final sql = 'SELECT * FROM persons'
+        '${activeOnly ? ' WHERE is_active = 1' : ''}'
+        ' ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE';
+    final rows = await _db.customSelect(sql).get();
+    return rows.map((r) => Person.fromMap(r.data)).toList();
   }
 
   /// Inserts a new person and returns the assigned id.
-  static Future<int> insertPerson(Person person) =>
-      _db.insert('persons', person.toMap());
+  static Future<int> insertPerson(Person person) async {
+    final map = person.toMap();
+    final keys = map.keys.join(', ');
+    final placeholders = map.keys.map((_) => '?').join(', ');
+    return _db.customInsert(
+      'INSERT INTO persons ($keys) VALUES ($placeholders)',
+      variables: _vars(map.values.toList()),
+    );
+  }
 
   /// Updates all fields of an existing person (matched by id).
-  static Future<void> updatePerson(Person person) => _db.update(
-        'persons',
-        person.toMap(),
-        where: 'id = ?',
-        whereArgs: [person.id],
-      );
+  static Future<void> updatePerson(Person person) async {
+    final map = person.toMap();
+    final setClause = map.keys.map((k) => '$k = ?').join(', ');
+    await _db.customUpdate(
+      'UPDATE persons SET $setClause WHERE id = ?',
+      variables: _vars([...map.values, person.id]),
+    );
+  }
 
   /// Toggles the is_active flag without touching any other fields.
-  static Future<void> setPersonActive(int personId, bool active) =>
-      _db.update(
-        'persons',
-        {'is_active': active ? 1 : 0},
-        where: 'id = ?',
-        whereArgs: [personId],
-      );
+  static Future<void> setPersonActive(int personId, bool active) async {
+    await _db.customUpdate(
+      'UPDATE persons SET is_active = ? WHERE id = ?',
+      variables: _vars([active ? 1 : 0, personId]),
+    );
+  }
 
   /// Permanently deletes a person and all their check-in records.
   static Future<void> deletePerson(int personId) async {
-    // Fetch checkin IDs first — sqflite doesn't support subqueries in DELETE.
-    final checkinRows = await _db.query('checkins',
-        columns: ['id'], where: 'person_id = ?', whereArgs: [personId]);
+    final checkinRows = await _db
+        .customSelect(
+          'SELECT id FROM checkins WHERE person_id = ?',
+          variables: _vars([personId]),
+        )
+        .get();
     for (final row in checkinRows) {
-      await _db.delete('checkin_methods',
-          where: 'checkin_id = ?', whereArgs: [row['id']]);
+      await _db.customUpdate(
+        'DELETE FROM checkin_methods WHERE checkin_id = ?',
+        variables: _vars([row.data['id']]),
+      );
     }
-    await _db.delete('checkins', where: 'person_id = ?', whereArgs: [personId]);
-    // Clear net_roles that reference this person (nullable FK).
-    await _db.update('net_roles', {'person_id': null},
-        where: 'person_id = ?', whereArgs: [personId]);
-    await _db.delete('persons', where: 'id = ?', whereArgs: [personId]);
+    await _db.customUpdate(
+      'DELETE FROM checkins WHERE person_id = ?',
+      variables: _vars([personId]),
+    );
+    await _db.customUpdate(
+      'UPDATE net_roles SET person_id = NULL WHERE person_id = ?',
+      variables: _vars([personId]),
+    );
+    await _db.customUpdate(
+      'DELETE FROM persons WHERE id = ?',
+      variables: _vars([personId]),
+    );
   }
 
   /// Bulk-import persons. Skips rows whose FCC callsign already exists.
@@ -81,116 +114,140 @@ class NetRepository {
   static Future<int> importPersons(List<Person> persons) async {
     // Auto-create cities
     final existingCities = (await loadCities()).toSet();
-    for (final p in persons) {
-      if (p.city != null && !existingCities.contains(p.city)) {
-        await insertCity(p.city!);
-        existingCities.add(p.city!);
+    for (final person in persons) {
+      if (person.city != null && !existingCities.contains(person.city)) {
+        await insertCity(person.city!);
+        existingCities.add(person.city!);
       }
     }
-    // Auto-create neighborhoods (insertNeighborhood ignores duplicates)
-    for (final p in persons) {
-      if (p.city != null && p.neighborhood != null) {
-        await insertNeighborhood(p.city!, p.neighborhood!);
+    // Auto-create neighborhoods
+    for (final person in persons) {
+      if (person.city != null && person.neighborhood != null) {
+        await insertNeighborhood(person.city!, person.neighborhood!);
       }
     }
     // Insert persons, skipping FCC-callsign duplicates
     int imported = 0;
     for (final person in persons) {
       if (person.fccCallsign != null && person.fccCallsign!.isNotEmpty) {
-        final existing = await _db.query('persons',
-            columns: ['id'],
-            where: 'fcc_callsign = ?',
-            whereArgs: [person.fccCallsign]);
+        final existing = await _db
+            .customSelect(
+              'SELECT id FROM persons WHERE fcc_callsign = ?',
+              variables: _vars([person.fccCallsign]),
+            )
+            .get();
         if (existing.isNotEmpty) continue;
       }
-      await _db.insert('persons', person.toMap());
+      await insertPerson(person);
       imported++;
     }
     return imported;
   }
 
-  // ── Cities ────────────────────────────────────────────────────────────────
+  // ── Cities ─────────────────────────────────────────────────────────────────
 
   static Future<List<String>> loadCities() async {
-    final rows = await _db.query('cities',
-        orderBy: 'name COLLATE NOCASE');
-    return rows.map((r) => r['name'] as String).toList();
+    final rows = await _db
+        .customSelect('SELECT name FROM cities ORDER BY name COLLATE NOCASE')
+        .get();
+    return rows.map((r) => r.data['name'] as String).toList();
   }
 
   /// Inserts a city. Silently does nothing if the name already exists.
   static Future<void> insertCity(String name) async {
-    await _db.insert('cities', {'name': name.trim()},
-        conflictAlgorithm: ConflictAlgorithm.ignore);
+    await _db.customInsert(
+      'INSERT OR IGNORE INTO cities (name) VALUES (?)',
+      variables: _vars([name.trim()]),
+    );
   }
 
   static Future<void> deleteCity(String name) async {
-    await _db.delete('neighborhoods', where: 'city = ?', whereArgs: [name]);
-    await _db.delete('cities', where: 'name = ?', whereArgs: [name]);
+    await _db.customUpdate(
+      'DELETE FROM neighborhoods WHERE city = ?',
+      variables: _vars([name]),
+    );
+    await _db.customUpdate(
+      'DELETE FROM cities WHERE name = ?',
+      variables: _vars([name]),
+    );
   }
 
-  // ── Neighborhoods ────────────────────────────────────────────────────────
+  // ── Neighborhoods ──────────────────────────────────────────────────────────
 
   /// Returns neighborhoods for a given city, sorted by name.
   static Future<List<String>> loadNeighborhoods(String city) async {
-    final rows = await _db.query('neighborhoods',
-        where: 'city = ?',
-        whereArgs: [city],
-        orderBy: 'name COLLATE NOCASE');
-    return rows.map((r) => r['name'] as String).toList();
+    final rows = await _db
+        .customSelect(
+          'SELECT name FROM neighborhoods WHERE city = ? ORDER BY name COLLATE NOCASE',
+          variables: _vars([city]),
+        )
+        .get();
+    return rows.map((r) => r.data['name'] as String).toList();
   }
 
   static Future<void> insertNeighborhood(String city, String name) async {
-    await _db.insert('neighborhoods', {'city': city, 'name': name.trim()},
-        conflictAlgorithm: ConflictAlgorithm.ignore);
+    await _db.customInsert(
+      'INSERT OR IGNORE INTO neighborhoods (city, name) VALUES (?, ?)',
+      variables: _vars([city, name.trim()]),
+    );
   }
 
-  static Future<void> deleteNeighborhood(String city, String name) =>
-      _db.delete('neighborhoods',
-          where: 'city = ? AND name = ?', whereArgs: [city, name]);
+  static Future<void> deleteNeighborhood(String city, String name) async {
+    await _db.customUpdate(
+      'DELETE FROM neighborhoods WHERE city = ? AND name = ?',
+      variables: _vars([city, name]),
+    );
+  }
 
-  // ── Weeks ─────────────────────────────────────────────────────────────────
+  // ── Weeks ──────────────────────────────────────────────────────────────────
 
   static Future<int> findOrCreateWeek(DateTime weekEnding) async {
     final dateStr = _dateStr(weekEnding);
-    final existing = await _db.query('weeks',
-        where: 'week_ending = ?', whereArgs: [dateStr]);
-    if (existing.isNotEmpty) return existing.first['id'] as int;
-    return _db.insert('weeks', {'week_ending': dateStr});
+    final existing = await _db
+        .customSelect(
+          'SELECT id FROM weeks WHERE week_ending = ?',
+          variables: _vars([dateStr]),
+        )
+        .get();
+    if (existing.isNotEmpty) return existing.first.data['id'] as int;
+    return _db.customInsert(
+      'INSERT INTO weeks (week_ending) VALUES (?)',
+      variables: _vars([dateStr]),
+    );
   }
 
   /// Returns the set of dates (normalized to midnight) that have at least
   /// one check-in recorded.
   static Future<Set<DateTime>> loadDatesWithCheckins() async {
-    final rows = await _db.rawQuery('''
+    final rows = await _db.customSelect('''
       SELECT DISTINCT w.week_ending
       FROM weeks w
       WHERE EXISTS (SELECT 1 FROM checkins c WHERE c.week_id = w.id)
-    ''');
+    ''').get();
     return {
-      for (final row in rows) DateTime.parse(row['week_ending'] as String),
+      for (final row in rows)
+        DateTime.parse(row.data['week_ending'] as String),
     };
   }
 
-  // ── Check-ins ─────────────────────────────────────────────────────────────
+  // ── Check-ins ──────────────────────────────────────────────────────────────
 
   /// Returns methods for the given week.
-  /// methods  : personId → set of checked method names
+  /// methods: personId → set of checked method names
   static Future<Map<int, Set<String>>> loadCheckins(int weekId) async {
-    final methods = <int, Set<String>>{};
-
-    final rows = await _db.rawQuery('''
+    final rows = await _db.customSelect('''
       SELECT c.person_id, cm.method
       FROM checkins c
       JOIN checkin_methods cm ON cm.checkin_id = c.id
       WHERE c.week_id = ?
-    ''', [weekId]);
+    ''', variables: _vars([weekId])).get();
 
+    final methods = <int, Set<String>>{};
     for (final row in rows) {
-      final pid = row['person_id'] as int;
-      final method = row['method'] as String;
+      final pid = row.data['person_id'] as int;
+      final method = row.data['method'] as String;
       methods.putIfAbsent(pid, () => {}).add(method);
     }
-
     return methods;
   }
 
@@ -200,33 +257,48 @@ class NetRepository {
       int weekId, int personId, String method, bool checked) async {
     if (checked) {
       final checkinId = await _ensureCheckin(weekId, personId);
-      final existing = await _db.query('checkin_methods',
-          where: 'checkin_id = ? AND method = ?',
-          whereArgs: [checkinId, method]);
+      final existing = await _db
+          .customSelect(
+            'SELECT id FROM checkin_methods WHERE checkin_id = ? AND method = ?',
+            variables: _vars([checkinId, method]),
+          )
+          .get();
       if (existing.isEmpty) {
-        await _db
-            .insert('checkin_methods', {'checkin_id': checkinId, 'method': method});
+        await _db.customInsert(
+          'INSERT INTO checkin_methods (checkin_id, method) VALUES (?, ?)',
+          variables: _vars([checkinId, method]),
+        );
       }
     } else {
-      final checkinRows = await _db.query('checkins',
-          where: 'person_id = ? AND week_id = ?',
-          whereArgs: [personId, weekId]);
+      final checkinRows = await _db
+          .customSelect(
+            'SELECT id FROM checkins WHERE person_id = ? AND week_id = ?',
+            variables: _vars([personId, weekId]),
+          )
+          .get();
       if (checkinRows.isEmpty) return;
-      final checkinId = checkinRows.first['id'] as int;
-      await _db.delete('checkin_methods',
-          where: 'checkin_id = ? AND method = ?',
-          whereArgs: [checkinId, method]);
-      // Remove checkin row if no methods remain
-      final remaining = await _db.query('checkin_methods',
-          where: 'checkin_id = ?', whereArgs: [checkinId]);
+      final checkinId = checkinRows.first.data['id'] as int;
+      await _db.customUpdate(
+        'DELETE FROM checkin_methods WHERE checkin_id = ? AND method = ?',
+        variables: _vars([checkinId, method]),
+      );
+      // Remove checkin row if no methods remain.
+      final remaining = await _db
+          .customSelect(
+            'SELECT id FROM checkin_methods WHERE checkin_id = ?',
+            variables: _vars([checkinId]),
+          )
+          .get();
       if (remaining.isEmpty) {
-        await _db
-            .delete('checkins', where: 'id = ?', whereArgs: [checkinId]);
+        await _db.customUpdate(
+          'DELETE FROM checkins WHERE id = ?',
+          variables: _vars([checkinId]),
+        );
       }
     }
   }
 
-  // ── Net roles ─────────────────────────────────────────────────────────────
+  // ── Net roles ──────────────────────────────────────────────────────────────
 
   /// For each day+role combination, returns the most recent assignment
   /// from any week before [currentWeekId] where a person was actually set.
@@ -234,7 +306,7 @@ class NetRepository {
       int currentWeekId) async {
     final result = <String, Map<String, dynamic>>{};
     for (final role in kNetRoles) {
-      final rows = await _db.rawQuery('''
+      final rows = await _db.customSelect('''
         SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
                p.first_name, p.last_name, p.fcc_callsign
         FROM net_roles nr
@@ -246,9 +318,10 @@ class NetRepository {
                OR (nr.display_name IS NOT NULL AND nr.display_name != ''))
         ORDER BY nr.week_id DESC
         LIMIT 1
-      ''', [currentWeekId, kNetRoleDay, role]);
+      ''', variables: _vars([currentWeekId, kNetRoleDay, role])).get();
       if (rows.isNotEmpty) {
-        result['$kNetRoleDay|$role'] = Map<String, dynamic>.from(rows.first);
+        result['$kNetRoleDay|$role'] =
+            Map<String, dynamic>.from(rows.first.data);
       }
     }
     return result;
@@ -258,18 +331,18 @@ class NetRepository {
   /// Each value is the raw DB row (includes person fields via JOIN).
   static Future<Map<String, Map<String, dynamic>>> loadNetRoles(
       int weekId) async {
-    final rows = await _db.rawQuery('''
+    final rows = await _db.customSelect('''
       SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
              p.first_name, p.last_name, p.fcc_callsign
       FROM net_roles nr
       LEFT JOIN persons p ON p.id = nr.person_id
       WHERE nr.week_id = ?
-    ''', [weekId]);
+    ''', variables: _vars([weekId])).get();
 
     return {
       for (final row in rows)
-        '${row['day_of_week']}|${row['role']}':
-            Map<String, dynamic>.from(row),
+        '${row.data['day_of_week']}|${row.data['role']}':
+            Map<String, dynamic>.from(row.data),
     };
   }
 
@@ -280,44 +353,51 @@ class NetRepository {
     int? personId,
     String? displayName,
   }) async {
-    final existing = await _db.query('net_roles',
-        where: 'week_id = ? AND day_of_week = ? AND role = ?',
-        whereArgs: [weekId, dayOfWeek, role]);
+    final existing = await _db
+        .customSelect(
+          'SELECT id FROM net_roles WHERE week_id = ? AND day_of_week = ? AND role = ?',
+          variables: _vars([weekId, dayOfWeek, role]),
+        )
+        .get();
 
     if (existing.isEmpty) {
       if (personId == null && (displayName == null || displayName.isEmpty)) {
         return;
       }
-      await _db.insert('net_roles', {
-        'week_id': weekId,
-        'day_of_week': dayOfWeek,
-        'role': role,
-        'person_id': personId,
-        'display_name': displayName,
-      });
+      await _db.customInsert(
+        'INSERT INTO net_roles (week_id, day_of_week, role, person_id, display_name) VALUES (?, ?, ?, ?, ?)',
+        variables: _vars([weekId, dayOfWeek, role, personId, displayName]),
+      );
     } else {
-      final id = existing.first['id'] as int;
+      final id = existing.first.data['id'] as int;
       if (personId == null && (displayName == null || displayName.isEmpty)) {
-        await _db.delete('net_roles', where: 'id = ?', whereArgs: [id]);
+        await _db.customUpdate(
+          'DELETE FROM net_roles WHERE id = ?',
+          variables: _vars([id]),
+        );
       } else {
-        await _db.update(
-          'net_roles',
-          {'person_id': personId, 'display_name': displayName},
-          where: 'id = ?',
-          whereArgs: [id],
+        await _db.customUpdate(
+          'UPDATE net_roles SET person_id = ?, display_name = ? WHERE id = ?',
+          variables: _vars([personId, displayName, id]),
         );
       }
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   static Future<int> _ensureCheckin(int weekId, int personId) async {
-    final existing = await _db.query('checkins',
-        where: 'person_id = ? AND week_id = ?',
-        whereArgs: [personId, weekId]);
-    if (existing.isNotEmpty) return existing.first['id'] as int;
-    return _db.insert('checkins', {'person_id': personId, 'week_id': weekId});
+    final existing = await _db
+        .customSelect(
+          'SELECT id FROM checkins WHERE person_id = ? AND week_id = ?',
+          variables: _vars([personId, weekId]),
+        )
+        .get();
+    if (existing.isNotEmpty) return existing.first.data['id'] as int;
+    return _db.customInsert(
+      'INSERT INTO checkins (person_id, week_id) VALUES (?, ?)',
+      variables: _vars([personId, weekId]),
+    );
   }
 
   static String _dateStr(DateTime dt) =>

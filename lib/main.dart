@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'database/database_helper.dart';
 import 'screens/weekly_checkin_screen.dart';
@@ -7,8 +6,6 @@ import 'screens/setup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  sqfliteFfiInit();
-  databaseFactory = databaseFactoryFfi;
 
   runApp(const HamNetManagerApp());
 }
