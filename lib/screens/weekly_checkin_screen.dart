@@ -237,9 +237,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Future<void> _fillFromPreviousWeek() async {
     if (_weekId == null) return;
-    final prev = await NetRepository.loadPreviousNetRoles(_weekId!);
+    final Map<String, Map<String, dynamic>> prev = await NetRepository.loadPreviousNetRoles(_weekId!);
     if (prev.isEmpty) return;
-    for (final entry in prev.entries) {
+    for (final MapEntry<String, Map<String, dynamic>> entry in prev.entries) {
       final List<String> parts = entry.key.split('|');
       final String day = parts[0];
       final String role = parts[1];
@@ -250,7 +250,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         displayName: row['display_name'] as String?,
       );
     }
-    final roles = await NetRepository.loadNetRoles(_weekId!);
+    final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
     setState(() => _netRoles = roles);
   }
 
@@ -332,7 +332,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     textCtrl.dispose();
     if ((saved ?? false) && _weekId != null) {
-      final roles = await NetRepository.loadNetRoles(_weekId!);
+      final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
       setState(() => _netRoles = roles);
     }
   }
