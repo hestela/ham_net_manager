@@ -1,5 +1,7 @@
 # Ham Net Manager
-A Flutter application for managing ham radio nets on Linux (including Raspberry Pi), Windows, Android, and web.
+A Flutter application for managing ham radio nets on Linux (including Raspberry Pi), Windows, Android, and web.  
+[Installation](#installation)  
+[Screenshots / Manual](#screenshots--manual)  
 
 ## Features
 - **Multiple Nets and export/import**: Each Net is contained within a SQLite database file that can be imported/exported or overwritten, allowing you to share the database with other operators. App keeps track of what databse files you have opened.
