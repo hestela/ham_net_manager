@@ -115,7 +115,7 @@ Main interface, buttons on the top right are:
 Net Control Script:
 - Click the net control script button to show/hide
 - Written with markdown
-- Supports a few template variables (like your name, callsign and net name) so that you can substitute your callsign into the net control script.
+- Supports a few template variables (like your name, callsign and net name) so that you can substitute your callsign into the net control script. See the (?) help button for more info.
 - Click on the pencil icon to edit the script, script is unique to each city/database
 ![Net Control Script](screenshots/net-control-script.webp)
 
