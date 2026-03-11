@@ -1,3 +1,3 @@
 // App version constant — keep in sync with pubspec.yaml.
 // Build scripts update this automatically before building.
-const kAppVersion = '1.2.0';
+const kAppVersion = '1.5.0';
