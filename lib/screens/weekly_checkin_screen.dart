@@ -419,7 +419,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           ),
         ],
       ),
-      body: Row(
+      body: SafeArea(
+        top: false,
+        child: Row(
         children: [
           // ── Main content ───────────────────────────────────────────
           Expanded(
@@ -536,6 +538,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             ),
           ],
         ],
+      ),
       ),
     );
   }
