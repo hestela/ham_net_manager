@@ -148,15 +148,17 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
                     visualDensity: VisualDensity.compact,
                   ),
                 if (_editing) ...[
-                  TextButton(
+                  IconButton(
+                    icon: const Icon(Icons.cancel_outlined, size: 20),
+                    tooltip: 'Cancel',
                     onPressed: _cancelEditing,
-                    child: const Text('Cancel'),
+                    visualDensity: VisualDensity.compact,
                   ),
-                  const SizedBox(width: 2),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.save, size: 16),
-                    label: const Text('Save'),
+                  IconButton(
+                    icon: const Icon(Icons.save, size: 20),
+                    tooltip: 'Save',
                     onPressed: _save,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
                 const SizedBox(width: 2),
