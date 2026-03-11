@@ -62,7 +62,7 @@ See [BUILDING.md](docs/BUILDING.md) for how to build for the different platforms
 - Remove and optionally delete a net
 ![Startup](screenshots/startup.webp)
 
-## Main Interface
+### Main Interface
 buttons on the top right are:
 - export current check-ins for active date to csv
 - manage cities
