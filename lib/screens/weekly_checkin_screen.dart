@@ -1076,14 +1076,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Header section (week selector + net roles) ────────────────────────────
 
   Widget _buildHeaderSection() {
-    return Padding(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildWeekCard(),
           const SizedBox(width: 16),
-          Expanded(child: _buildNetRolesTable()),
+          _buildNetRolesTable(),
         ],
       ),
     );
@@ -1152,7 +1153,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       border: TableBorder.all(color: Colors.grey.shade400),
       columnWidths: const {
         0: IntrinsicColumnWidth(),
-        1: FixedColumnWidth(200),
+        1: IntrinsicColumnWidth(),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
@@ -1478,16 +1479,19 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     return Container(
       color: Colors.grey.shade100,
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          stat('Non-GMRS Member Check-ins:', _hamOnlyCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('All Member Check-ins:', _includingGmrsCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('Non-GMRS Guest Check-ins:', _guestHamOnlyCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('All Guest Check-ins:', _guestIncludingGmrsCount),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            stat('Non-GMRS Member Check-ins:', _hamOnlyCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('All Member Check-ins:', _includingGmrsCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('Non-GMRS Guest Check-ins:', _guestHamOnlyCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('All Guest Check-ins:', _guestIncludingGmrsCount),
+          ],
+        ),
       ),
     );
   }
