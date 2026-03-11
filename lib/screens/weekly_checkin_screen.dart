@@ -428,6 +428,8 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
               children: [
                 _buildHeaderSection(),
                 const Divider(height: 1),
+                _buildCountsBar(),
+                const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
                   child: Focus(
@@ -482,7 +484,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                             ),
                             _buildTotalsRow(_memberPersons),
                           ],
-                          _buildUniqueCountsSection(),
                           // ── Guest & Visitor Check-ins ──────────────────
                           _buildSectionHeader(
                             'Guest & Visitor Check-ins',
@@ -502,7 +503,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                             ),
                             _buildTotalsRow(_guestPersons),
                           ],
-                          _buildGuestUniqueCountsSection(),
                         ],
                       ),
                     ),
@@ -1425,113 +1425,38 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
   }
 
-  // ── Unique counts ─────────────────────────────────────────────────────────
+  // ── Counts bar ────────────────────────────────────────────────────────────
 
-  Widget _buildUniqueCountsSection() {
+  Widget _buildCountsBar() {
+    const labelStyle = TextStyle(fontSize: 13, color: Colors.black54);
+    const countStyle = TextStyle(
+        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87);
+    const dividerColor = Colors.black26;
+
+    Widget stat(String label, int count) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: labelStyle),
+              const SizedBox(width: 6),
+              Text('$count', style: countStyle),
+            ],
+          ),
+        );
+
     return Container(
-      width: _totalTableWidth,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade400),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      color: Colors.grey.shade100,
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Non-GMRS Check-ins:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_hamOnlyCount',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'All Check-ins:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_includingGmrsCount',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuestUniqueCountsSection() {
-    return Container(
-      width: _totalTableWidth,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade400),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Non-GMRS Check-ins:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_guestHamOnlyCount',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'All Check-ins:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_guestIncludingGmrsCount',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          stat('Non-GMRS Member Check-ins:', _hamOnlyCount),
+          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+          stat('All Member Check-ins:', _includingGmrsCount),
+          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+          stat('Non-GMRS Guest Check-ins:', _guestHamOnlyCount),
+          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+          stat('All Guest Check-ins:', _guestIncludingGmrsCount),
         ],
       ),
     );
