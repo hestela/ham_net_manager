@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'database/database_helper.dart';
-import 'screens/weekly_checkin_screen.dart';
 import 'screens/setup_screen.dart';
+import 'screens/weekly_checkin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +42,7 @@ class _StartupScreenState extends State<_StartupScreen> {
   }
 
   Future<void> _startup() async {
-    final existing = await DatabaseHelper.findExistingDatabases();
+    final List<String> existing = await DatabaseHelper.findExistingDatabases();
 
     if (!mounted) return;
 

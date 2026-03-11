@@ -21,7 +21,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
   }
 
   Future<void> _load() async {
-    final cities = await NetRepository.loadCities();
+    final List<String> cities = await NetRepository.loadCities();
     final neighborhoods = <String, List<String>>{};
     for (final city in cities) {
       neighborhoods[city] = await NetRepository.loadNeighborhoods(city);
@@ -36,7 +36,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
 
   Future<void> _addCity() async {
     final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+    final String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add City'),
@@ -64,7 +64,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
 
   Future<void> _addMultipleCities() async {
     final ctrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add Multiple Cities'),
@@ -95,7 +95,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
       ),
     );
     if (confirmed != true) return;
-    final names = ctrl.text
+    final Set<String> names = ctrl.text
         .split('\n')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -107,7 +107,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
   }
 
   Future<void> _deleteCity(String name) async {
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete City'),
@@ -136,7 +136,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
 
   Future<void> _addNeighborhood(String city) async {
     final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+    final String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Add Neighborhood to $city'),
@@ -164,7 +164,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
 
   Future<void> _addMultipleNeighborhoods(String city) async {
     final ctrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Add Multiple Neighborhoods to $city'),
@@ -195,7 +195,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
       ),
     );
     if (confirmed != true) return;
-    final names = ctrl.text
+    final Set<String> names = ctrl.text
         .split('\n')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -248,7 +248,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
   }
 
   Widget _buildCityTile(String city) {
-    final hoods = _neighborhoods[city] ?? [];
+    final List<String> hoods = _neighborhoods[city] ?? [];
 
     return ExpansionTile(
       leading: const Icon(Icons.location_city_outlined),

@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/file_io.dart';
 import 'app_database.dart';
 import 'database_helper_io.dart'
     if (dart.library.html) 'database_helper_web.dart';
-import '../utils/file_io.dart';
 
 class DatabaseHelper {
   static AppDatabase? _db;
@@ -34,7 +34,7 @@ class DatabaseHelper {
   /// On web: net names stored in SharedPreferences.
   static Future<List<String>> findExistingDatabases() async {
     if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
       return prefs.getStringList(_webDatabasesPrefKey) ?? [];
     }
     return platformFindExistingDatabases();
@@ -46,8 +46,8 @@ class DatabaseHelper {
   static Future<void> removeDatabase(String nameOrPath,
       {bool deleteFile = false}) async {
     if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final list = (prefs.getStringList(_webDatabasesPrefKey) ?? []).toSet()
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final Set<String> list = (prefs.getStringList(_webDatabasesPrefKey) ?? []).toSet()
         ..remove(nameOrPath);
       await prefs.setStringList(_webDatabasesPrefKey, list.toList());
       return;
@@ -61,11 +61,11 @@ class DatabaseHelper {
   static Future<AppDatabase> initialize(String netName) async {
     if (_db != null) return _db!;
 
-    final slug = _toSlug(netName);
+    final String slug = _toSlug(netName);
     _currentSlug = slug;
     String? filePath;
 
-    final dirPath = await platformGetAppDirectoryPath();
+    final String dirPath = await platformGetAppDirectoryPath();
     if (dirPath.isNotEmpty) {
       filePath = p.join(dirPath, '$slug-weekly-net.sqlite');
       _dbPath = filePath;
@@ -82,8 +82,8 @@ class DatabaseHelper {
 
     // On web, track the net name in SharedPreferences so it shows up next time.
     if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final list =
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final Set<String> list =
           (prefs.getStringList(_webDatabasesPrefKey) ?? []).toSet()..add(netName);
       await prefs.setStringList(_webDatabasesPrefKey, list.toList());
     }
@@ -97,12 +97,12 @@ class DatabaseHelper {
   static Future<AppDatabase> openExisting(String path) async {
     if (_db != null) return _db!;
 
-    final dirPath = await platformGetAppDirectoryPath();
+    final String dirPath = await platformGetAppDirectoryPath();
 
     if (!kIsWeb && dirPath.isNotEmpty) {
       // Desktop: use the file path.
       _dbPath = path;
-      final slug = p.basenameWithoutExtension(path);
+      final String slug = p.basenameWithoutExtension(path);
       _currentSlug = slug;
       _db = openAppDatabase(name: slug, filePath: path);
 
@@ -139,7 +139,7 @@ class DatabaseHelper {
 
   /// Reads a value from the settings table. Returns null if not found.
   static Future<String?> getSetting(String key) async {
-    final rows = await _db!
+    final List<QueryRow> rows = await _db!
         .customSelect(
           'SELECT value FROM settings WHERE key = ? LIMIT 1',
           variables: [Variable<String>(key)],
@@ -161,9 +161,9 @@ class DatabaseHelper {
   /// Returns null on desktop (use file path directly) or if OPFS unavailable.
   static Future<Uint8List?> exportDatabaseBytes() async {
     if (!kIsWeb || _db == null || _currentSlug == null) return null;
-    final slug = _currentSlug!;
+    final String slug = _currentSlug!;
     await close();
-    final bytes = await exportWebDatabaseBytes(slug);
+    final Uint8List? bytes = await exportWebDatabaseBytes(slug);
     // Reopen the database after reading.
     _db = openAppDatabase(name: slug);
     await _loadCurrentCity();
@@ -173,7 +173,7 @@ class DatabaseHelper {
   /// Imports a .sqlite file as the current database on web.
   /// Closes the current DB, deletes it from OPFS, reopens with the new bytes.
   static Future<void> importDatabase(String netName, Uint8List bytes) async {
-    final slug = _toSlug(netName);
+    final String slug = _toSlug(netName);
     await close();
     await deleteWebDatabase(slug);
     _currentSlug = slug;
@@ -194,8 +194,8 @@ class DatabaseHelper {
     } catch (_) {}
 
     // Save to web_databases pref list.
-    final prefs = await SharedPreferences.getInstance();
-    final list =
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final Set<String> list =
         (prefs.getStringList(_webDatabasesPrefKey) ?? []).toSet()..add(netName);
     await prefs.setStringList(_webDatabasesPrefKey, list.toList());
   }
@@ -206,7 +206,7 @@ class DatabaseHelper {
     if (_db == null) return;
 
     try {
-      final rows = await _db!
+      final List<QueryRow> rows = await _db!
           .customSelect(
             "SELECT value FROM settings WHERE key = 'net_name' LIMIT 1",
           )
@@ -221,9 +221,9 @@ class DatabaseHelper {
 
     // Fallback: extract from filename and persist.
     if (_dbPath != null) {
-      final filename = p.basename(_dbPath!);
+      final String filename = p.basename(_dbPath!);
       if (filename.endsWith('-weekly-net.sqlite')) {
-        final slug = filename.replaceAll('-weekly-net.sqlite', '');
+        final String slug = filename.replaceAll('-weekly-net.sqlite', '');
         _currentCity = slug
             .split('-')
             .map((word) => word.isEmpty
@@ -233,7 +233,7 @@ class DatabaseHelper {
         try {
           await _db!.customInsert(
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('net_name', ?)",
-            variables: [Variable<String>(_currentCity!)],
+            variables: [Variable<String>(_currentCity)],
           );
         } catch (_) {}
       }

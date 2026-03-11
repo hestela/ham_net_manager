@@ -34,12 +34,12 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   }
 
   Future<void> _load() async {
-    final persons = await NetRepository.loadPersons(activeOnly: false);
+    final List<Person> persons = await NetRepository.loadPersons(activeOnly: false);
     setState(() => _persons = persons);
   }
 
   Future<void> _addOrEdit(Person? existing) async {
-    final result = await showDialog<Person>(
+    final Person? result = await showDialog<Person>(
       context: context,
       builder: (_) => _PersonFormDialog(initial: existing),
     );
@@ -59,7 +59,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   }
 
   Future<void> _deletePerson(Person person) async {
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Member'),
@@ -96,9 +96,9 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _persons.where(_matches).toList();
-    final active = filtered.where((p) => p.isActive).toList();
-    final inactive = filtered.where((p) => !p.isActive).toList();
+    final List<Person> filtered = _persons.where(_matches).toList();
+    final List<Person> active = filtered.where((p) => p.isActive).toList();
+    final List<Person> inactive = filtered.where((p) => !p.isActive).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -200,14 +200,14 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
             p.lastName ?? '',
             p.fccCallsign ?? '',
             p.gmrsCallsign ?? '',
-            p.isMember ? 'yes' : '',
+            if (p.isMember) 'yes' else '',
             p.city ?? '',
             p.neighborhood ?? '',
           ]),
     ];
 
-    final csv = const CsvEncoder().convert(rows);
-    final savedPath = await saveCsvFile('members.csv', csv);
+    final String csv = const CsvEncoder().convert(rows);
+    final String? savedPath = await saveCsvFile('members.csv', csv);
     if (savedPath == null) return;
 
     if (!mounted) return;
@@ -217,9 +217,9 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   }
 
   Future<void> _importCsv() async {
-    final content = await pickCsvContent();
+    final String? content = await pickCsvContent();
     if (content == null) return;
-    final rows = const CsvDecoder().convert(content);
+    final List<dynamic> rows = const CsvDecoder().convert(content);
     if (rows.length < 2) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -230,9 +230,9 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     }
 
     // Detect column mapping from header row
-    final headers =
+    final List<String> headers =
         rows.first.map((h) => h.toString().trim().toLowerCase()).toList();
-    final mapping = _detectColumns(headers);
+    final Map<String, int> mapping = _detectColumns(headers);
     if (!mapping.containsKey('first_name')) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -246,8 +246,8 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
 
     // Parse data rows into Person objects
     final persons = <Person>[];
-    for (int i = 1; i < rows.length; i++) {
-      final person = _rowToPerson(rows[i], mapping);
+    for (var i = 1; i < rows.length; i++) {
+      final Person? person = _rowToPerson(rows[i], mapping);
       if (person != null) persons.add(person);
     }
 
@@ -261,14 +261,14 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     }
 
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (_) =>
           _ImportPreviewDialog(persons: persons, mapping: mapping),
     );
     if (confirmed != true) return;
 
-    final count = await NetRepository.importPersons(persons);
+    final int count = await NetRepository.importPersons(persons);
     await _load();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -296,9 +296,9 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     };
 
     final mapping = <String, int>{};
-    for (int i = 0; i < headers.length; i++) {
-      final h = headers[i];
-      for (final entry in aliases.entries) {
+    for (var i = 0; i < headers.length; i++) {
+      final String h = headers[i];
+      for (final MapEntry<String, List<String>> entry in aliases.entries) {
         if (entry.value.contains(h) && !mapping.containsKey(entry.key)) {
           mapping[entry.key] = i;
           break;
@@ -311,28 +311,28 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
   static Person? _rowToPerson(
       List<dynamic> row, Map<String, int> mapping) {
     String? field(String name) {
-      final idx = mapping[name];
+      final int? idx = mapping[name];
       if (idx == null || idx >= row.length) return null;
-      final val = row[idx].toString().trim();
+      final String val = row[idx].toString().trim();
       return val.isEmpty ? null : val;
     }
 
-    var firstName = field('first_name');
-    var lastName = field('last_name');
+    String? firstName = field('first_name');
+    String? lastName = field('last_name');
     if (firstName == null) return null;
 
     // If there's no last_name column, try to split "Bob H" into first + initial
     if (lastName == null && firstName.contains(' ')) {
-      final lastSpace = firstName.lastIndexOf(' ');
-      final tail = firstName.substring(lastSpace + 1).trim();
+      final int lastSpace = firstName.lastIndexOf(' ');
+      final String tail = firstName.substring(lastSpace + 1).trim();
       if (tail.length <= 2) {
         lastName = tail;
         firstName = firstName.substring(0, lastSpace).trim();
       }
     }
 
-    final memberStr = field('is_member')?.toLowerCase();
-    final isMember = memberStr == 'x' ||
+    final String? memberStr = field('is_member')?.toLowerCase();
+    final bool isMember = memberStr == 'x' ||
         memberStr == 'true' ||
         memberStr == '1' ||
         memberStr == 'yes';
@@ -406,8 +406,8 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
 // ── Person form dialog ────────────────────────────────────────────────────────
 
 class _PersonFormDialog extends StatefulWidget {
-  final Person? initial;
   const _PersonFormDialog({this.initial});
+  final Person? initial;
 
   @override
   State<_PersonFormDialog> createState() => _PersonFormDialogState();
@@ -441,7 +441,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
   }
 
   Future<void> _loadCities({String? initial, String? initialNeighborhood}) async {
-    final cities = await NetRepository.loadCities();
+    final List<String> cities = await NetRepository.loadCities();
     setState(() {
       _cities = cities;
       if (initial != null && cities.contains(initial)) {
@@ -458,7 +458,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
   }
 
   Future<void> _loadNeighborhoods(String city, {String? initial}) async {
-    final hoods = await NetRepository.loadNeighborhoods(city);
+    final List<String> hoods = await NetRepository.loadNeighborhoods(city);
     setState(() {
       _neighborhoods = hoods;
       if (initial != null) {
@@ -472,7 +472,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
 
   @override
   void dispose() {
-    for (final c in [_firstName, _lastName, _fccCall, _gmrsCall]) {
+    for (final TextEditingController c in [_firstName, _lastName, _fccCall, _gmrsCall]) {
       c.dispose();
     }
     super.dispose();
@@ -480,7 +480,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
 
   Future<void> _addCity() async {
     final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+    final String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add City'),
@@ -514,7 +514,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
   Future<void> _addNeighborhood() async {
     if (_selectedCity == null) return;
     final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+    final String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Add Neighborhood to $_selectedCity'),
@@ -622,7 +622,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
                         decoration: const InputDecoration(labelText: 'City'),
                         items: [
                           const DropdownMenuItem<String?>(
-                              value: null, child: Text('(none)')),
+                              child: Text('(none)')),
                           ..._cities.map((c) => DropdownMenuItem<String?>(
                                 value: c,
                                 child: Text(c),
@@ -657,7 +657,7 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
                         decoration: const InputDecoration(labelText: 'Neighborhood'),
                         items: [
                           const DropdownMenuItem<String?>(
-                              value: null, child: Text('(none)')),
+                              child: Text('(none)')),
                           ..._neighborhoods.map((n) => DropdownMenuItem<String?>(
                                 value: n,
                                 child: Text(n),
@@ -693,13 +693,13 @@ class _PersonFormDialogState extends State<_PersonFormDialog> {
 // ── Import preview dialog ─────────────────────────────────────────────────────
 
 class _ImportPreviewDialog extends StatelessWidget {
-  final List<Person> persons;
-  final Map<String, int> mapping;
 
   const _ImportPreviewDialog({
     required this.persons,
     required this.mapping,
   });
+  final List<Person> persons;
+  final Map<String, int> mapping;
 
   @override
   Widget build(BuildContext context) {

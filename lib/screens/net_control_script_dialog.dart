@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
 
-const defaultNetControlScript = '''# Net Control Script
+const defaultNetControlScript = '''
+# Net Control Script
 
 Welcome to the **{net_name}** net.
 
@@ -36,8 +37,8 @@ String _toPhonetic(String callsign) => callsign
 
 /// A side panel widget for displaying / editing the net control script.
 class NetControlScriptPanel extends StatefulWidget {
-  final VoidCallback onClose;
   const NetControlScriptPanel({super.key, required this.onClose});
+  final VoidCallback onClose;
 
   @override
   State<NetControlScriptPanel> createState() => _NetControlScriptPanelState();
@@ -64,10 +65,10 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
   }
 
   Future<void> _loadScript() async {
-    final script = await DatabaseHelper.getSetting('net_control_script') ??
+    final String script = await DatabaseHelper.getSetting('net_control_script') ??
         defaultNetControlScript;
-    final prefs = await SharedPreferences.getInstance();
-    final callsign = prefs.getString('user_callsign') ?? '';
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String callsign = prefs.getString('user_callsign') ?? '';
     _templateVars = {
       'user_first_name': prefs.getString('user_first_name') ?? '',
       'user_last_name': prefs.getString('user_last_name') ?? '',
@@ -83,14 +84,14 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
 
   String _applyTemplate(String source) {
     var result = source;
-    for (final entry in _templateVars.entries) {
+    for (final MapEntry<String, String> entry in _templateVars.entries) {
       result = result.replaceAll('{${entry.key}}', entry.value);
     }
     return result;
   }
 
   Future<void> _save() async {
-    final text = _editController.text;
+    final String text = _editController.text;
     await DatabaseHelper.setSetting('net_control_script', text);
     setState(() {
       _rawScript = text;

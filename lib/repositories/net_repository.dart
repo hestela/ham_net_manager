@@ -47,15 +47,15 @@ class NetRepository {
     final sql = 'SELECT * FROM persons'
         '${activeOnly ? ' WHERE is_active = 1' : ''}'
         ' ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE';
-    final rows = await _db.customSelect(sql).get();
+    final List<QueryRow> rows = await _db.customSelect(sql).get();
     return rows.map((r) => Person.fromMap(r.data)).toList();
   }
 
   /// Inserts a new person and returns the assigned id.
   static Future<int> insertPerson(Person person) async {
-    final map = person.toMap();
-    final keys = map.keys.join(', ');
-    final placeholders = map.keys.map((_) => '?').join(', ');
+    final Map<String, dynamic> map = person.toMap();
+    final String keys = map.keys.join(', ');
+    final String placeholders = map.keys.map((_) => '?').join(', ');
     return _db.customInsert(
       'INSERT INTO persons ($keys) VALUES ($placeholders)',
       variables: _vars(map.values.toList()),
@@ -64,8 +64,8 @@ class NetRepository {
 
   /// Updates all fields of an existing person (matched by id).
   static Future<void> updatePerson(Person person) async {
-    final map = person.toMap();
-    final setClause = map.keys.map((k) => '$k = ?').join(', ');
+    final Map<String, dynamic> map = person.toMap();
+    final String setClause = map.keys.map((k) => '$k = ?').join(', ');
     await _db.customUpdate(
       'UPDATE persons SET $setClause WHERE id = ?',
       variables: _vars([...map.values, person.id]),
@@ -76,13 +76,13 @@ class NetRepository {
   static Future<void> setPersonActive(int personId, bool active) async {
     await _db.customUpdate(
       'UPDATE persons SET is_active = ? WHERE id = ?',
-      variables: _vars([active ? 1 : 0, personId]),
+      variables: _vars([if (active) 1 else 0, personId]),
     );
   }
 
   /// Permanently deletes a person and all their check-in records.
   static Future<void> deletePerson(int personId) async {
-    final checkinRows = await _db
+    final List<QueryRow> checkinRows = await _db
         .customSelect(
           'SELECT id FROM checkins WHERE person_id = ?',
           variables: _vars([personId]),
@@ -113,7 +113,7 @@ class NetRepository {
   /// Returns the number of newly inserted rows.
   static Future<int> importPersons(List<Person> persons) async {
     // Auto-create cities
-    final existingCities = (await loadCities()).toSet();
+    final Set<String> existingCities = (await loadCities()).toSet();
     for (final person in persons) {
       if (person.city != null && !existingCities.contains(person.city)) {
         await insertCity(person.city!);
@@ -127,10 +127,10 @@ class NetRepository {
       }
     }
     // Insert persons, skipping FCC-callsign duplicates
-    int imported = 0;
+    var imported = 0;
     for (final person in persons) {
       if (person.fccCallsign != null && person.fccCallsign!.isNotEmpty) {
-        final existing = await _db
+        final List<QueryRow> existing = await _db
             .customSelect(
               'SELECT id FROM persons WHERE fcc_callsign = ?',
               variables: _vars([person.fccCallsign]),
@@ -147,7 +147,7 @@ class NetRepository {
   // ── Cities ─────────────────────────────────────────────────────────────────
 
   static Future<List<String>> loadCities() async {
-    final rows = await _db
+    final List<QueryRow> rows = await _db
         .customSelect('SELECT name FROM cities ORDER BY name COLLATE NOCASE')
         .get();
     return rows.map((r) => r.data['name'] as String).toList();
@@ -176,7 +176,7 @@ class NetRepository {
 
   /// Returns neighborhoods for a given city, sorted by name.
   static Future<List<String>> loadNeighborhoods(String city) async {
-    final rows = await _db
+    final List<QueryRow> rows = await _db
         .customSelect(
           'SELECT name FROM neighborhoods WHERE city = ? ORDER BY name COLLATE NOCASE',
           variables: _vars([city]),
@@ -202,8 +202,8 @@ class NetRepository {
   // ── Weeks ──────────────────────────────────────────────────────────────────
 
   static Future<int> findOrCreateWeek(DateTime weekEnding) async {
-    final dateStr = _dateStr(weekEnding);
-    final existing = await _db
+    final String dateStr = _dateStr(weekEnding);
+    final List<QueryRow> existing = await _db
         .customSelect(
           'SELECT id FROM weeks WHERE week_ending = ?',
           variables: _vars([dateStr]),
@@ -219,7 +219,7 @@ class NetRepository {
   /// Returns the set of dates (normalized to midnight) that have at least
   /// one check-in recorded.
   static Future<Set<DateTime>> loadDatesWithCheckins() async {
-    final rows = await _db.customSelect('''
+    final List<QueryRow> rows = await _db.customSelect('''
       SELECT DISTINCT w.week_ending
       FROM weeks w
       WHERE EXISTS (SELECT 1 FROM checkins c WHERE c.week_id = w.id)
@@ -235,7 +235,7 @@ class NetRepository {
   /// Returns methods for the given week.
   /// methods: personId → set of checked method names
   static Future<Map<int, Set<String>>> loadCheckins(int weekId) async {
-    final rows = await _db.customSelect('''
+    final List<QueryRow> rows = await _db.customSelect('''
       SELECT c.person_id, cm.method
       FROM checkins c
       JOIN checkin_methods cm ON cm.checkin_id = c.id
@@ -256,8 +256,8 @@ class NetRepository {
   static Future<void> setMethod(
       int weekId, int personId, String method, bool checked) async {
     if (checked) {
-      final checkinId = await _ensureCheckin(weekId, personId);
-      final existing = await _db
+      final int checkinId = await _ensureCheckin(weekId, personId);
+      final List<QueryRow> existing = await _db
           .customSelect(
             'SELECT id FROM checkin_methods WHERE checkin_id = ? AND method = ?',
             variables: _vars([checkinId, method]),
@@ -270,7 +270,7 @@ class NetRepository {
         );
       }
     } else {
-      final checkinRows = await _db
+      final List<QueryRow> checkinRows = await _db
           .customSelect(
             'SELECT id FROM checkins WHERE person_id = ? AND week_id = ?',
             variables: _vars([personId, weekId]),
@@ -283,7 +283,7 @@ class NetRepository {
         variables: _vars([checkinId, method]),
       );
       // Remove checkin row if no methods remain.
-      final remaining = await _db
+      final List<QueryRow> remaining = await _db
           .customSelect(
             'SELECT id FROM checkin_methods WHERE checkin_id = ?',
             variables: _vars([checkinId]),
@@ -305,8 +305,8 @@ class NetRepository {
   static Future<Map<String, Map<String, dynamic>>> loadPreviousNetRoles(
       int currentWeekId) async {
     final result = <String, Map<String, dynamic>>{};
-    for (final role in kNetRoles) {
-      final rows = await _db.customSelect('''
+    for (final String role in kNetRoles) {
+      final List<QueryRow> rows = await _db.customSelect('''
         SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
                p.first_name, p.last_name, p.fcc_callsign
         FROM net_roles nr
@@ -331,7 +331,7 @@ class NetRepository {
   /// Each value is the raw DB row (includes person fields via JOIN).
   static Future<Map<String, Map<String, dynamic>>> loadNetRoles(
       int weekId) async {
-    final rows = await _db.customSelect('''
+    final List<QueryRow> rows = await _db.customSelect('''
       SELECT nr.day_of_week, nr.role, nr.person_id, nr.display_name,
              p.first_name, p.last_name, p.fcc_callsign
       FROM net_roles nr
@@ -353,7 +353,7 @@ class NetRepository {
     int? personId,
     String? displayName,
   }) async {
-    final existing = await _db
+    final List<QueryRow> existing = await _db
         .customSelect(
           'SELECT id FROM net_roles WHERE week_id = ? AND day_of_week = ? AND role = ?',
           variables: _vars([weekId, dayOfWeek, role]),
@@ -387,7 +387,7 @@ class NetRepository {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   static Future<int> _ensureCheckin(int weekId, int personId) async {
-    final existing = await _db
+    final List<QueryRow> existing = await _db
         .customSelect(
           'SELECT id FROM checkins WHERE person_id = ? AND week_id = ?',
           variables: _vars([personId, weekId]),
