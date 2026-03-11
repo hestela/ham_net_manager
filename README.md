@@ -1,12 +1,25 @@
 # Ham Net Manager
+A Flutter application for managing ham radio nets on Linux (including Raspberry Pi), Windows, Android, and web.  
+[Installation](#installation)  
+[Screenshots / Manual](#screenshots--manual)  
 
-A Flutter application for managing ham radio nets on Linux (including Raspberry Pi), Windows, Android and web.  
-Each Net is contained within a sqlite database file and can be imported/exported or overwritten so that you can share the database file after checking-in people to your net.  
-Multiple Nets are supported, can switch between nets when launching the app or after selecting a different net.  
-Some persistent information is saved in "Your Info" to be used for template variables in the net control script.  
-Each net can have its own net control script written in markdown, most syntax is supported including tables.  
-Each net contains a list of members and information about them as needed. Fuzzy search for members is enabled in the main check-in UI and in the member management.  
-There is also a web build available which stores all data within your web browser [hestela.github.io/ham_net_manager](https://hestela.github.io/ham_net_manager/). It makes use of [Origin private file system (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system). The web interface can export/import sqlite files that can be later shared with the desktop versions. You may want to export the sqlite file after each session as the browser data can be lost since it is not really stored in a persistent way (ie if your computer/phone is running low on space, the browser may decide to wipe your data from this webapp). The web interface should work on all modern browsers/platforms. It even works in Firefox on Android (you may want to it use on a tablet). Otherwise, no installations or extras are needed. Main downside is that you need to be connected to the internet to use the web app, unless you self-host it behind nginx for example (https is required due to some of the web technologies used).
+## Features
+- **Multiple Nets and export/import**: Each Net is contained within a SQLite database file that can be imported/exported or overwritten, allowing you to share the database with other operators. App keeps track of what databse files you have opened.
+- **Import/Export via CSV files**: Can import/export radio operator data (ie callsign, name, city). Check-in data can be exported to CSV for each date.
+- **Markdown Net Control Scripts**: Each net can have its own script with most markdown syntax supported including tables. A few variables are provided to insert your own callsign into the net script.
+- **Member Management**: Add/remove radio operators to the net as needed. Operators are stored in each net's database file.
+- **Operator search**: Fuzzy search for ham radio operators by multiple fields (ie callsign, first name, city) in the main check-in UI and member management screen.
+
+## Web Version
+
+A web build is available at [hestela.github.io/ham_net_manager](https://hestela.github.io/ham_net_manager/).  
+It stores all data within your web browser using the [Origin Private File System (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).  
+The web interface can export/import SQLite files compatible with desktop versions.  
+**Note:** You may want to export the SQLite file after each session, as browser data can be lost (e.g., if your device is low on space, the browser may wipe the data).  
+The web interface should work on all modern browsers/OS.
+
+**Limitation:** Internet connection required unless you self-host the app on a webserver in your LAN such as with nginx (HTTPS required due to some of the web technologies used).
+
 
 ## Installation
 ### Linux
@@ -14,7 +27,7 @@ There is also a web build available which stores all data within your web browse
 sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager-$(uname -m).AppImage -O /usr/local/bin/ham_net_manager
 sudo chmod +x /usr/local/bin/ham_net_manager
 ```
-aarch64 and x86_64 releases are available. App has been tested on Raspberry Pi 4 with Raspberry Pi OS 13 and on Debian 13.
+aarch64 and x86_64 builds are available. App has been tested on Raspberry Pi 4 with Raspberry Pi OS 13 and on Debian 13 x86_64.
 
 ### Android
 [Download latest apk](https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager.apk)
@@ -43,40 +56,40 @@ Add-AppPackage -Path .\ham_net_manager.msix
 ## Development
 See [BUILDING.md](docs/BUILDING.md) for how to build for the different platforms, but you mainly use the flutter command to build/test the app.
 
-
 ## Screenshots / Manual
-Interface at startup:
+### Startup Interface
 - Can create a new net/database 
 - Remove and optionally delete a net
 ![Startup](screenshots/startup.webp)
 
-Main interface, buttons on the top right are:
+### Main Interface
+buttons on the top right are:
 - export current check-ins for active date to csv
 - manage cities
 - manage members/visitors
 ![Main UI](screenshots/main-ui.webp)
 
-Net Control Script:
+### Net Control Script
 - Click the net control script button to show/hide
 - Written with markdown
 - Supports a few template variables (like your name, callsign and net name) so that you can substitute your callsign into the net control script. See the (?) help button for more info.
 - Click on the pencil icon to edit the script, script is unique to each city/database
 ![Net Control Script](screenshots/net-control-script.webp)
 
-Manage Cities:
-![Manage Cities](screenshots/city-manager.webp)
+### Manage Cities
 - Add/remove Cities and Neighborhoods
 - Cities and Neighborhoods are optional fields for the member information
+![Manage Cities](screenshots/city-manager.webp)
 
-Manage Members:
-![Manage Members](screenshots/member-manager.webp)
+### Manage Members
 - Fuzzy search on all fields (click esc to clear search)
 - "Members" have a star next to their name and Guests/Visitors have the person icon.
 - add/remove/edit members here
 - can import/export member information via csv
 - When importing members, missing cities/neighborhoods will be created. Make sure that your city and neighborhood names don't have typos or small variations otherwise you will have duplicates.
+![Manage Members](screenshots/member-manager.webp)
 
-Navigation Menu:
+### Navigation Menu
 the icon at the top left of the main check-in UI has a so called "hamburger menu" (the 3 stacked lines) which has:
 - Your Info (used for net control script mainly)
 - Rename Net
@@ -84,11 +97,12 @@ the icon at the top left of the main check-in UI has a so called "hamburger menu
 - Switch Database (switch to previously setup net)
 - Save Database As (to export sqlite database to a new location)
 - Remove current database (to remove current net from history and optionally delete sqlite database file)
-![Navigation](screenshots/navigation.webp)
+<img src="screenshots/navigation.webp" width="350" />
 
-Switch Database/Net:
-![Switch Net](screenshots/switch-net.webp)
+### Switch Database/Net
+<img src="screenshots/switch-net.webp" width="350" />
 
-Your Info:
+### Your Info
 All fields are optional. This data persists between sessions and nets (it is stored in its own json file).
-![Your Info](screenshots/your-info.webp)
+<img src="screenshots/your-info.webp" width="350" />
+
