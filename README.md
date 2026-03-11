@@ -7,6 +7,8 @@ Some persistent information is saved in "Your Info" to be used for template vari
 Each net can have its own net control script written in markdown, most syntax is supported including tables.  
 Each net contains a list of members and information about them as needed. Fuzzy search for members is enabled in the main check-in UI and in the member management.  
 
+There is also a web build available which stores all data within your web browser [[hestela.github.io/ham_net_manager](https://hestela.github.io/ham_net_manager/). It makes use of [Origin private file system (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system). The web interface can export/import sqlite files that can be later shared with the desktop versions. You may want to export the sqlite file after each session as the browser data can be lost since it is not really stored in a persistent way (ie if your computer/phone is running low on space, the browser may decide to wipe your data from this webapp). The web interface should work on all modern browsers/platforms. It even works in Firefox on Android (you may want to it use on a tablet). Otherwise, no installations or extras are needed. Main downside is that you need to be connected to the internet to use the web app, unless you self-host it behind nginx for example (https is required due to some of the web technologies used).
+
 ## Installation
 ### Linux
 ```bash
@@ -16,7 +18,7 @@ sudo chmod +x /usr/local/bin/ham_net_manager
 aarch64 and x86_64 releases are available. App has been tested on Raspberry Pi 4 with Raspberry Pi OS 13 and on Debian 13.
 
 ### Windows
-For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app.
+For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app. Otherwise, using the web app is the easiest way.
 #### MSIX Install
 You will need to "trust" the self-signed certificate that was used to build the MSIX file. You only need to do this once, unless the certificate gets updated.
 1. Download the certificate by [clicking here (github link)](https://github.com/hestela/ham_net_manager/raw/refs/heads/main/ham_net_manager.cer)
