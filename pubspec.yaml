@@ -39,7 +39,6 @@ dependencies:
   csv: ^7.2.0
   shared_preferences: ^2.3.0
   flutter_markdown_plus: ^1.0.7
-  msix: ^3.16.13
 
 dev_dependencies:
   flutter_test:
@@ -53,6 +52,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: ^2.32.0
   build_runner: ^2.4.13
+  msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1,11 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
-/// Saves [content] to a user-chosen CSV file. Returns the chosen path, or
-/// null if cancelled.
+/// Saves [content] to a CSV file. On desktop, prompts the user with a save
+/// dialog. On Android, auto-saves to the app's documents directory.
+/// Returns the saved path, or null if cancelled.
 Future<String?> saveCsvFile(String defaultFilename, String content) async {
+  if (Platform.isAndroid) {
+    final dir = await getApplicationDocumentsDirectory();
+    final path = '${dir.path}/$defaultFilename';
+    await File(path).writeAsString(content);
+    return path;
+  }
+
   final path = await FilePicker.platform.saveFile(
     dialogTitle: 'Save CSV',
     fileName: defaultFilename,
@@ -20,6 +30,18 @@ Future<String?> saveCsvFile(String defaultFilename, String content) async {
 /// Opens a file picker for CSV files and returns the file content as a string.
 /// Returns null if cancelled.
 Future<String?> pickCsvContent() async {
+  if (Platform.isAndroid) {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final bytes = result.files.single.bytes;
+    if (bytes == null) return null;
+    return utf8.decode(bytes);
+  }
+
   final result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['csv'],
@@ -30,9 +52,17 @@ Future<String?> pickCsvContent() async {
   return File(path).readAsString();
 }
 
-/// Copies [sourcePath] to a user-chosen destination.
-/// Returns true if the copy succeeded, false if cancelled.
+/// Copies [sourcePath] to a user-chosen destination. On Android, copies to
+/// the app's documents directory. Returns true if successful, false if cancelled.
 Future<bool> saveDatabaseCopy(String sourcePath) async {
+  if (Platform.isAndroid) {
+    final dir = await getApplicationDocumentsDirectory();
+    final filename = sourcePath.split('/').last;
+    final destPath = '${dir.path}/$filename';
+    await File(sourcePath).copy(destPath);
+    return true;
+  }
+
   final destPath = await FilePicker.platform.saveFile(
     dialogTitle: 'Save Database As',
     fileName: sourcePath.split('/').last,
@@ -43,9 +73,27 @@ Future<bool> saveDatabaseCopy(String sourcePath) async {
   return true;
 }
 
-/// Opens a file picker to choose a database file. Returns the path, or null
-/// if cancelled.
+/// Opens a file picker to choose a database file. On Android, copies the
+/// selected file to the app's data directory and returns that local path.
+/// Returns null if cancelled.
 Future<String?> pickDatabaseFile() async {
+  if (Platform.isAndroid) {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Open Database File',
+      type: FileType.any,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final bytes = result.files.single.bytes;
+    if (bytes == null) return null;
+    final filename = result.files.single.name;
+    final dir = await getApplicationDocumentsDirectory();
+    final destPath = '${dir.path}/$filename';
+    await File(destPath).writeAsBytes(bytes);
+    return destPath;
+  }
+
   final result = await FilePicker.platform.pickFiles(
     dialogTitle: 'Open Database File',
     type: FileType.any,
@@ -55,11 +103,11 @@ Future<String?> pickDatabaseFile() async {
   return result.files.single.path;
 }
 
-/// No-op on desktop — web only.
+/// No-op on desktop/Android — web only.
 void saveDatabaseFile(String filename, Uint8List bytes) {}
 
-/// No-op on desktop — web only.
+/// No-op on desktop/Android — web only.
 Future<Uint8List?> exportWebDatabaseBytes(String dbName) async => null;
 
-/// No-op on desktop — web only.
+/// No-op on desktop/Android — web only.
 Future<void> deleteWebDatabase(String dbName) async {}
