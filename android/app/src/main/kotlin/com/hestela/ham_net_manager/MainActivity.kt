@@ -1,4 +1,4 @@
-package com.example.ham_net_manager
+package com.hestela.ham_net_manager
 
 import io.flutter.embedding.android.FlutterActivity
 

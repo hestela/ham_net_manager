@@ -416,8 +416,13 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: Row(
+        child: LayoutBuilder(
+        builder: (context, outerConstraints) {
+        final bool useOverlay = outerConstraints.maxWidth < 600;
+        return Stack(
         children: [
+          Row(
+          children: [
           // ── Main content ───────────────────────────────────────────
           Expanded(
             child: Column(
@@ -518,8 +523,8 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
               ],
             ),
           ),
-          // ── Script side panel ──────────────────────────────────────
-          if (_scriptPanelOpen) ...[
+          // ── Script side panel (wide screens) ───────────────────────
+          if (_scriptPanelOpen && !useOverlay) ...[
             _buildResizeDivider(),
             SizedBox(
               width: _scriptPanelWidth,
@@ -528,8 +533,19 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
               ),
             ),
           ],
+          ],
+          ),
+          // ── Script panel overlay (narrow screens) ──────────────────
+          if (_scriptPanelOpen && useOverlay)
+            Positioned.fill(
+              child: NetControlScriptPanel(
+                onClose: () => setState(() => _scriptPanelOpen = false),
+              ),
+            ),
         ],
-      ),
+        );
+        },
+        ),
       ),
     );
   }
