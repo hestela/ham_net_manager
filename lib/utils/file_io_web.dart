@@ -2,10 +2,9 @@
 import 'dart:html' as html;
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:js_interop';
 
+import 'package:drift/wasm.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:web/web.dart' as web;
 
 /// Triggers a browser download of [content] as a CSV file named
 /// [defaultFilename]. Returns [defaultFilename] to indicate success.
@@ -50,40 +49,47 @@ void saveDatabaseFile(String filename, Uint8List bytes) {
   html.Url.revokeObjectUrl(url);
 }
 
-/// Reads raw bytes of the current web database from OPFS.
-/// [dbName] is the drift database name (slug).
-/// Returns null if OPFS is unavailable or database not found.
+/// Reads raw bytes of the current web database from whatever storage backend
+/// drift is using (OPFS or IndexedDB). [dbName] is the drift database name
+/// (slug). Returns null if the database is not found.
+///
+/// Must be called after the database is closed so that writes are flushed.
 Future<Uint8List?> exportWebDatabaseBytes(String dbName) async {
   try {
-    final storage = web.window.navigator.storage;
-    final root = await storage.getDirectory().toDart;
-    final driftDir = await root
-        .getDirectoryHandle('drift_db', web.FileSystemGetDirectoryOptions(create: false))
-        .toDart;
-    final dbDir = await driftDir
-        .getDirectoryHandle(dbName, web.FileSystemGetDirectoryOptions(create: false))
-        .toDart;
-    final fileHandle = await dbDir
-        .getFileHandle('database', web.FileSystemGetFileOptions(create: false))
-        .toDart;
-    final file = await fileHandle.getFile().toDart;
-    final arrayBuffer = await file.arrayBuffer().toDart;
-    return arrayBuffer.toDart.asUint8List();
+    final probe = await WasmDatabase.probe(
+      sqlite3Uri: Uri.parse('sqlite3.wasm'),
+      driftWorkerUri: Uri.parse('drift_worker.js'),
+      databaseName: dbName,
+    );
+    for (final db in probe.existingDatabases) {
+      if (db.$2 == dbName) {
+        return await probe.exportDatabase(db);
+      }
+    }
+    return null;
   } catch (_) {
     return null;
   }
 }
 
-/// Deletes a web database from OPFS so it can be recreated with new data.
+/// Deletes a web database from storage so it can be recreated with new data.
+/// Works with both OPFS and IndexedDB backends.
+///
+/// Must be called after the database is closed.
 Future<void> deleteWebDatabase(String dbName) async {
   try {
-    final storage = web.window.navigator.storage;
-    final root = await storage.getDirectory().toDart;
-    final driftDir = await root
-        .getDirectoryHandle('drift_db', web.FileSystemGetDirectoryOptions(create: false))
-        .toDart;
-    await driftDir.removeEntry(dbName, web.FileSystemRemoveOptions(recursive: true)).toDart;
+    final probe = await WasmDatabase.probe(
+      sqlite3Uri: Uri.parse('sqlite3.wasm'),
+      driftWorkerUri: Uri.parse('drift_worker.js'),
+      databaseName: dbName,
+    );
+    for (final db in probe.existingDatabases) {
+      if (db.$2 == dbName) {
+        await probe.deleteDatabase(db);
+        return;
+      }
+    }
   } catch (_) {
-    // Database may not exist yet — that's fine.
+    // Database may not exist — that's fine.
   }
 }

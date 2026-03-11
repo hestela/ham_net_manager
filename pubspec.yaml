@@ -40,7 +40,6 @@ dependencies:
   csv: ^7.2.0
   shared_preferences: ^2.3.0
   flutter_markdown_plus: ^1.0.7
-  web: ^1.1.0
   msix: ^3.16.13
 
 dev_dependencies:
