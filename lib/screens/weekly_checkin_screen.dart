@@ -462,54 +462,64 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                   ),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: _totalTableWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Member Check-ins ────────────────────────────
-                          _buildSectionHeader(
-                            'Member Check-ins',
-                            _membersExpanded,
-                            () => setState(() =>
-                                _membersExpanded = !_membersExpanded),
-                          ),
-                          if (_membersExpanded) ...[
-                            _buildTableHeader(),
-                            Flexible(
-                              child: ListView(
-                                children: _memberPersons.asMap().entries
-                                    .map((e) =>
-                                        _buildPersonRow(e.value, e.key))
-                                    .toList(),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final extraW = (constraints.maxWidth - _totalTableWidth)
+                          .clamp(0.0, double.infinity);
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: _totalTableWidth + extraW,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── Member Check-ins ──────────────────────────
+                              _buildSectionHeader(
+                                'Member Check-ins',
+                                _membersExpanded,
+                                () => setState(() =>
+                                    _membersExpanded = !_membersExpanded),
+                                extraW: extraW,
                               ),
-                            ),
-                            _buildTotalsRow(_memberPersons),
-                          ],
-                          // ── Guest & Visitor Check-ins ──────────────────
-                          _buildSectionHeader(
-                            'Guest & Visitor Check-ins',
-                            _guestsExpanded,
-                            () => setState(() =>
-                                _guestsExpanded = !_guestsExpanded),
-                          ),
-                          if (_guestsExpanded) ...[
-                            _buildTableHeader(),
-                            Flexible(
-                              child: ListView(
-                                children: _guestPersons.asMap().entries
-                                    .map((e) =>
-                                        _buildPersonRow(e.value, e.key))
-                                    .toList(),
+                              if (_membersExpanded) ...[
+                                _buildTableHeader(extraW: extraW),
+                                Flexible(
+                                  child: ListView(
+                                    children: _memberPersons.asMap().entries
+                                        .map((e) => _buildPersonRow(
+                                            e.value, e.key,
+                                            extraW: extraW))
+                                        .toList(),
+                                  ),
+                                ),
+                                _buildTotalsRow(_memberPersons, extraW: extraW),
+                              ],
+                              // ── Guest & Visitor Check-ins ────────────────
+                              _buildSectionHeader(
+                                'Guest & Visitor Check-ins',
+                                _guestsExpanded,
+                                () => setState(() =>
+                                    _guestsExpanded = !_guestsExpanded),
+                                extraW: extraW,
                               ),
-                            ),
-                            _buildTotalsRow(_guestPersons),
-                          ],
-                        ],
-                      ),
-                    ),
+                              if (_guestsExpanded) ...[
+                                _buildTableHeader(extraW: extraW),
+                                Flexible(
+                                  child: ListView(
+                                    children: _guestPersons.asMap().entries
+                                        .map((e) => _buildPersonRow(
+                                            e.value, e.key,
+                                            extraW: extraW))
+                                        .toList(),
+                                  ),
+                                ),
+                                _buildTotalsRow(_guestPersons, extraW: extraW),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1232,11 +1242,12 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Section header ────────────────────────────────────────────────────────
 
   Widget _buildSectionHeader(
-      String title, bool expanded, VoidCallback onTap) {
+      String title, bool expanded, VoidCallback onTap,
+      {double extraW = 0}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: _totalTableWidth,
+        width: _totalTableWidth + extraW,
         color: Colors.blueGrey.shade100,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -1254,7 +1265,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   // ── Main table ────────────────────────────────────────────────────────────
 
-  Widget _buildTableHeader() {
+  Widget _buildTableHeader({double extraW = 0}) {
     const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
     return Container(
       color: Colors.grey.shade300,
@@ -1269,7 +1280,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           ...kCheckInMethods
               .map((m) => _hdrCell(kMethodLabels[m]!, _wMethod, style, center: true)),
           _sortableHdrCell('City', _wCity, style, _SortColumn.city),
-          _hdrCell('Neighborhood', _wNeighborhood, style),
+          _hdrCell('Neighborhood', _wNeighborhood + extraW, style),
           // Rotated "Checked in"
           SizedBox(
             width: _wCheckedIn,
@@ -1332,7 +1343,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
   }
 
-  Widget _buildPersonRow(Person person, int rowIndex) {
+  Widget _buildPersonRow(Person person, int rowIndex, {double extraW = 0}) {
     final methods = _checkins[person.id] ?? {};
     final checkedIn = methods.isNotEmpty;
 
@@ -1355,7 +1366,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           ...kCheckInMethods.map(
               (m) => _methodCell(person, m, methods.contains(m))),
           _dataCell(person.city ?? '', _wCity),
-          _dataCell(person.neighborhood ?? '', _wNeighborhood),
+          _dataCell(person.neighborhood ?? '', _wNeighborhood + extraW),
           // Checked-in indicator
           SizedBox(
             width: _wCheckedIn,
@@ -1421,7 +1432,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   // ── Totals row ────────────────────────────────────────────────────────────
 
-  Widget _buildTotalsRow(List<Person> persons) {
+  Widget _buildTotalsRow(List<Person> persons, {double extraW = 0}) {
     final counts = <String, int>{};
     for (final p in persons) {
       for (final m in _checkins[p.id] ?? {}) {
@@ -1449,7 +1460,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child:
                     Text('${counts[m] ?? 0}', style: style),
               )),
-          SizedBox(width: _wCity + _wNeighborhood + _wCheckedIn),
+          SizedBox(width: _wCity + _wNeighborhood + extraW + _wCheckedIn),
         ],
       ),
     );
