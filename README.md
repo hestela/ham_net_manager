@@ -1,12 +1,11 @@
 # Ham Net Manager
 
-A Flutter application for managing ham radio nets on Linux and Windows desktop platforms.  
+A Flutter application for managing ham radio nets on Linux (including Raspberry Pi), Windows, Android and web.  
 Each Net is contained within a sqlite database file and can be imported/exported or overwritten so that you can share the database file after checking-in people to your net.  
 Multiple Nets are supported, can switch between nets when launching the app or after selecting a different net.  
 Some persistent information is saved in "Your Info" to be used for template variables in the net control script.  
 Each net can have its own net control script written in markdown, most syntax is supported including tables.  
 Each net contains a list of members and information about them as needed. Fuzzy search for members is enabled in the main check-in UI and in the member management.  
-
 There is also a web build available which stores all data within your web browser [hestela.github.io/ham_net_manager](https://hestela.github.io/ham_net_manager/). It makes use of [Origin private file system (OPFS)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system). The web interface can export/import sqlite files that can be later shared with the desktop versions. You may want to export the sqlite file after each session as the browser data can be lost since it is not really stored in a persistent way (ie if your computer/phone is running low on space, the browser may decide to wipe your data from this webapp). The web interface should work on all modern browsers/platforms. It even works in Firefox on Android (you may want to it use on a tablet). Otherwise, no installations or extras are needed. Main downside is that you need to be connected to the internet to use the web app, unless you self-host it behind nginx for example (https is required due to some of the web technologies used).
 
 ## Installation
@@ -16,6 +15,9 @@ sudo wget https://github.com/hestela/ham_net_manager/releases/latest/download/Ha
 sudo chmod +x /usr/local/bin/ham_net_manager
 ```
 aarch64 and x86_64 releases are available. App has been tested on Raspberry Pi 4 with Raspberry Pi OS 13 and on Debian 13.
+
+### Android
+[Download latest apk](https://github.com/hestela/ham_net_manager/releases/latest/download/Ham_Net_Manager.apk)
 
 ### Windows
 For windows, you will either need to build the app yourself with flutter or you can download an MSIX release but then you will need to install the self-signed code signing certificate that was used to build this app. Otherwise, using the web app is the easiest way.
@@ -38,67 +40,9 @@ For Windows 10, you will need to open powershell and either cd to the folder wit
 Add-AppPackage -Path .\ham_net_manager.msix
 ```
 
-## Quick Start
-### Prerequisites
-- Flutter 3.11+ (with desktop support enabled)
-- For Linux: GTK 3.0+ development files
-- For AppImage builds: `appimagetool`
-
-### Building
-
-Using Make:
-```bash
-make build-linux       # Build Linux binary
-make build-appimage    # Build AppImage for distribution
-make run               # Run the app locally
-```
-
-Or with Flutter directly:
-```bash
-flutter pub get
-flutter run -d linux
-flutter build linux --release
-```
-
-### AppImage Distribution
-
-Build a portable Linux AppImage:
-```bash
-./scripts/build_appimage.sh
-```
-
-This creates `dist/Ham_Net_Manager-*.AppImage` which can be:
-- Distributed directly to users
-- Run without installation
-- Used on any Linux distribution
-
-See [docs/APPIMAGE_BUILD.md](docs/APPIMAGE_BUILD.md) for details.
-
 ## Development
+See [BUILDING.md](docs/BUILDING.md) for how to build for the different platforms, but you mainly use the flutter command to build/test the app.
 
-- **Flutter**: [Official docs](https://docs.flutter.dev/)
-- **Project guidance**: See [CLAUDE.md](CLAUDE.md)
-- **Database**: SQLite via `sqflite_common_ffi`
-
-## Project Structure
-
-- `lib/` — Dart/Flutter code
-- `linux/` — Linux/GTK platform configuration and AppImage files
-- `windows/` — Windows platform configuration
-- `scripts/` — Build automation scripts
-- `test/` — Test files
-
-## Deployment
-
-### Linux
-- **Development**: `flutter run -d linux`
-- **Release binary**: `flutter build linux --release` → `build/linux/x64/release/bundle/`
-- **AppImage**: `./scripts/build_appimage.sh` → `dist/Ham_Net_Manager-*.AppImage`
-
-### Windows
-```bash
-flutter build windows --release
-```
 
 ## Screenshots / Manual
 Interface at startup:

@@ -8,35 +8,35 @@ const _hiddenPrefKey = 'hidden_databases';
 const _recentDatabasesPrefKey = 'recent_databases';
 
 Future<String> platformGetAppDirectoryPath() async {
-  final docsDir = await getApplicationDocumentsDirectory();
+  final Directory docsDir = await getApplicationDocumentsDirectory();
   final dir = Directory(p.join(docsDir.path, 'ham_net_manager'));
   await dir.create(recursive: true);
   return dir.path;
 }
 
 Future<List<String>> platformFindExistingDatabases() async {
-  final dirPath = await platformGetAppDirectoryPath();
+  final String dirPath = await platformGetAppDirectoryPath();
   final dir = Directory(dirPath);
-  final prefs = await SharedPreferences.getInstance();
-  final hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet();
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final Set<String> hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet();
 
-  final appDatabases = dir
+  final List<String> appDatabases = dir
       .listSync()
       .whereType<File>()
       .where((f) => f.path.endsWith('.sqlite') && !hidden.contains(f.path))
       .map((f) => f.path)
       .toList();
 
-  final recentPaths =
+  final Set<String> recentPaths =
       (prefs.getStringList(_recentDatabasesPrefKey) ?? []).toSet();
   final existingRecentPaths = <String>[];
   for (final path in recentPaths) {
-    if (await File(path).exists()) {
+    if (File(path).existsSync()) {
       existingRecentPaths.add(path);
     }
   }
 
-  final allPaths = {...appDatabases, ...existingRecentPaths}.toList();
+  final List<String> allPaths = {...appDatabases, ...existingRecentPaths}.toList();
   allPaths.sort();
   return allPaths;
 }
@@ -45,18 +45,18 @@ Future<void> platformRemoveDatabase(String path,
     {bool deleteFile = false}) async {
   if (deleteFile) {
     final file = File(path);
-    if (await file.exists()) await file.delete();
+    if (file.existsSync()) await file.delete();
   } else {
-    final prefs = await SharedPreferences.getInstance();
-    final hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet()
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final Set<String> hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet()
       ..add(path);
     await prefs.setStringList(_hiddenPrefKey, hidden.toList());
   }
 }
 
 Future<void> platformAddRecentDatabase(String path) async {
-  final prefs = await SharedPreferences.getInstance();
-  final recent = (prefs.getStringList(_recentDatabasesPrefKey) ?? []).toSet()
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final Set<String> recent = (prefs.getStringList(_recentDatabasesPrefKey) ?? []).toSet()
     ..add(path);
   await prefs.setStringList(_recentDatabasesPrefKey, recent.toList());
 }

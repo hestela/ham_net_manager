@@ -10,13 +10,13 @@ import 'package:path_provider/path_provider.dart';
 /// Returns the saved path, or null if cancelled.
 Future<String?> saveCsvFile(String defaultFilename, String content) async {
   if (Platform.isAndroid) {
-    final dir = await getApplicationDocumentsDirectory();
+    final Directory dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/$defaultFilename';
     await File(path).writeAsString(content);
     return path;
   }
 
-  final path = await FilePicker.platform.saveFile(
+  final String? path = await FilePicker.platform.saveFile(
     dialogTitle: 'Save CSV',
     fileName: defaultFilename,
     type: FileType.custom,
@@ -31,23 +31,23 @@ Future<String?> saveCsvFile(String defaultFilename, String content) async {
 /// Returns null if cancelled.
 Future<String?> pickCsvContent() async {
   if (Platform.isAndroid) {
-    final result = await FilePicker.platform.pickFiles(
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return null;
-    final bytes = result.files.single.bytes;
+    final Uint8List? bytes = result.files.single.bytes;
     if (bytes == null) return null;
     return utf8.decode(bytes);
   }
 
-  final result = await FilePicker.platform.pickFiles(
+  final FilePickerResult? result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['csv'],
   );
   if (result == null || result.files.isEmpty) return null;
-  final path = result.files.single.path;
+  final String? path = result.files.single.path;
   if (path == null) return null;
   return File(path).readAsString();
 }
@@ -56,17 +56,16 @@ Future<String?> pickCsvContent() async {
 /// the app's documents directory. Returns true if successful, false if cancelled.
 Future<bool> saveDatabaseCopy(String sourcePath) async {
   if (Platform.isAndroid) {
-    final dir = await getApplicationDocumentsDirectory();
-    final filename = sourcePath.split('/').last;
+    final Directory dir = await getApplicationDocumentsDirectory();
+    final String filename = sourcePath.split('/').last;
     final destPath = '${dir.path}/$filename';
     await File(sourcePath).copy(destPath);
     return true;
   }
 
-  final destPath = await FilePicker.platform.saveFile(
+  final String? destPath = await FilePicker.platform.saveFile(
     dialogTitle: 'Save Database As',
     fileName: sourcePath.split('/').last,
-    type: FileType.any,
   );
   if (destPath == null) return false;
   await File(sourcePath).copy(destPath);
@@ -78,26 +77,22 @@ Future<bool> saveDatabaseCopy(String sourcePath) async {
 /// Returns null if cancelled.
 Future<String?> pickDatabaseFile() async {
   if (Platform.isAndroid) {
-    final result = await FilePicker.platform.pickFiles(
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Open Database File',
-      type: FileType.any,
-      allowMultiple: false,
       withData: true,
     );
     if (result == null || result.files.isEmpty) return null;
-    final bytes = result.files.single.bytes;
+    final Uint8List? bytes = result.files.single.bytes;
     if (bytes == null) return null;
-    final filename = result.files.single.name;
-    final dir = await getApplicationDocumentsDirectory();
+    final String filename = result.files.single.name;
+    final Directory dir = await getApplicationDocumentsDirectory();
     final destPath = '${dir.path}/$filename';
     await File(destPath).writeAsBytes(bytes);
     return destPath;
   }
 
-  final result = await FilePicker.platform.pickFiles(
+  final FilePickerResult? result = await FilePicker.platform.pickFiles(
     dialogTitle: 'Open Database File',
-    type: FileType.any,
-    allowMultiple: false,
   );
   if (result == null || result.files.isEmpty) return null;
   return result.files.single.path;

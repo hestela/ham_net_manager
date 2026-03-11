@@ -28,7 +28,7 @@ const _wCity = 105.0;
 const _wNeighborhood = 150.0;
 const _wCheckedIn = 58.0;
 
-const _totalTableWidth = _wGmrs +
+const double _totalTableWidth = _wGmrs +
     _wCall +
     _wName +
     _wMethod * 6 +
@@ -84,8 +84,8 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Future<void> _loadInitialDate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedDate = prefs.getString('last_selected_date');
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? savedDate = prefs.getString('last_selected_date');
     if (savedDate != null) {
       _weekEnding = DateTime.parse(savedDate);
     }
@@ -94,10 +94,10 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final persons = await NetRepository.loadPersons();
-    final weekId = await NetRepository.findOrCreateWeek(_weekEnding);
-    final methods = await NetRepository.loadCheckins(weekId);
-    final netRoles = await NetRepository.loadNetRoles(weekId);
+    final List<Person> persons = await NetRepository.loadPersons();
+    final int weekId = await NetRepository.findOrCreateWeek(_weekEnding);
+    final Map<int, Set<String>> methods = await NetRepository.loadCheckins(weekId);
+    final Map<String, Map<String, dynamic>> netRoles = await NetRepository.loadNetRoles(weekId);
 
     setState(() {
       _persons = persons;
@@ -149,9 +149,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Date picking ────────────────────────────────────────────────────────────
 
   Future<void> _pickDate() async {
-    final highlighted = await NetRepository.loadDatesWithCheckins();
+    final Set<DateTime> highlighted = await NetRepository.loadDatesWithCheckins();
     if (!mounted) return;
-    final picked = await _showHighlightedDatePicker(
+    final DateTime? picked = await _showHighlightedDatePicker(
       context: context,
       initialDate: _weekEnding,
       firstDate: DateTime(2020),
@@ -160,7 +160,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
     if (picked != null && !_sameDay(picked, _weekEnding)) {
       _weekEnding = picked;
-      final prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_selected_date', _weekEnding.toIso8601String());
       await _load();
     }
@@ -178,7 +178,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         '${_weekEnding.year}-${_weekEnding.month.toString().padLeft(2, '0')}-${_weekEnding.day.toString().padLeft(2, '0')}';
 
     // Header row
-    final header = [
+    final List<String> header = [
       'GMRS Callsign',
       'FCC Callsign',
       'Name',
@@ -190,8 +190,8 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     // Data rows — only persons who checked in
     final rows = <List<String>>[];
-    for (final person in _persons) {
-      final methods = _checkins[person.id] ?? {};
+    for (final Person person in _persons) {
+      final Set<String> methods = _checkins[person.id] ?? {};
       if (methods.isEmpty) continue;
       rows.add([
         person.gmrsCallsign ?? '',
@@ -204,10 +204,10 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       ]);
     }
 
-    final csv = const CsvEncoder().convert([header, ...rows]);
+    final String csv = const CsvEncoder().convert([header, ...rows]);
 
-    final sanitizedNetName = _sanitizeFilename(DatabaseHelper.currentCity);
-    final savedPath =
+    final String sanitizedNetName = _sanitizeFilename(DatabaseHelper.currentCity);
+    final String? savedPath =
         await saveCsvFile('$sanitizedNetName-$dateStr.csv', csv);
     if (savedPath == null) return;
 
@@ -237,20 +237,20 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Future<void> _fillFromPreviousWeek() async {
     if (_weekId == null) return;
-    final prev = await NetRepository.loadPreviousNetRoles(_weekId!);
+    final Map<String, Map<String, dynamic>> prev = await NetRepository.loadPreviousNetRoles(_weekId!);
     if (prev.isEmpty) return;
-    for (final entry in prev.entries) {
-      final parts = entry.key.split('|');
-      final day = parts[0];
-      final role = parts[1];
-      final row = entry.value;
+    for (final MapEntry<String, Map<String, dynamic>> entry in prev.entries) {
+      final List<String> parts = entry.key.split('|');
+      final String day = parts[0];
+      final String role = parts[1];
+      final Map<String, dynamic> row = entry.value;
       await NetRepository.setNetRole(
         _weekId!, day, role,
         personId: row['person_id'] as int?,
         displayName: row['display_name'] as String?,
       );
     }
-    final roles = await NetRepository.loadNetRoles(_weekId!);
+    final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
     setState(() => _netRoles = roles);
   }
 
@@ -258,7 +258,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     if (_weekId == null) return;
 
     final key = '$day|$role';
-    final current = _netRoles[key];
+    final Map<String, dynamic>? current = _netRoles[key];
     final currentPersonId = current?['person_id'] as int?;
     Person? selected = currentPersonId != null
         ? _persons.where((p) => p.id == currentPersonId).firstOrNull
@@ -266,7 +266,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final textCtrl =
         TextEditingController(text: current?['display_name'] as String? ?? '');
 
-    final saved = await showDialog<bool>(
+    final bool? saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
@@ -281,7 +281,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 hint: const Text('Select person…'),
                 items: [
                   const DropdownMenuItem<Person?>(
-                      value: null, child: Text('(none)')),
+                      child: Text('(none)')),
                   ..._persons.map((p) => DropdownMenuItem<Person?>(
                         value: p,
                         child:
@@ -313,7 +313,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 child: const Text('Cancel')),
             FilledButton(
               onPressed: () async {
-                final displayName = textCtrl.text.trim().isNotEmpty
+                final String? displayName = textCtrl.text.trim().isNotEmpty
                     ? textCtrl.text.trim()
                     : null;
                 await NetRepository.setNetRole(
@@ -331,8 +331,8 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
 
     textCtrl.dispose();
-    if (saved == true && _weekId != null) {
-      final roles = await NetRepository.loadNetRoles(_weekId!);
+    if ((saved ?? false) && _weekId != null) {
+      final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
       setState(() => _netRoles = roles);
     }
   }
@@ -398,7 +398,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             icon: const Icon(Icons.location_city),
             tooltip: 'Manage Cities',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ManageCitiesScreen()),
+              MaterialPageRoute<void>(builder: (_) => const ManageCitiesScreen()),
             ),
           ),
           IconButton(
@@ -406,7 +406,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             tooltip: 'Manage Members',
             onPressed: () async {
               await Navigator.of(context).push(
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
                     builder: (_) => const ManagePersonsScreen()),
               );
               _load(); // refresh in case persons changed
@@ -457,7 +457,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final extraW = (constraints.maxWidth - _totalTableWidth)
+                      final double extraW = (constraints.maxWidth - _totalTableWidth)
                           .clamp(0.0, double.infinity);
                       return SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
@@ -537,7 +537,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Script panel resize divider ────────────────────────────────────────────
 
   Widget _buildResizeDivider() {
-    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final bool isAndroid = !kIsWeb && Platform.isAndroid;
     final dividerWidth = isAndroid ? 28.0 : 6.0;
 
     final handle = GestureDetector(
@@ -584,15 +584,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.inversePrimary,
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Text(
+                Text(
                   'Net Manager',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const Text(
+                Text(
                   'v$kAppVersion',
                   style: TextStyle(fontSize: 13),
                 ),
@@ -663,7 +663,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Future<void> _editYourInfo() async {
     Navigator.of(context).pop(); // close drawer
 
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     final firstCtrl =
         TextEditingController(text: prefs.getString('user_first_name') ?? '');
     final lastCtrl =
@@ -729,7 +729,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Future<void> _renameNet() async {
     Navigator.of(context).pop(); // close drawer
     final ctrl = TextEditingController(text: DatabaseHelper.currentCity);
-    final name = await showDialog<String>(
+    final String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Rename Net'),
@@ -759,7 +759,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     Navigator.of(context).pop(); // close drawer
 
     final ctrl = TextEditingController();
-    final cityName = await showDialog<String>(
+    final String? cityName = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('New Database'),
@@ -806,14 +806,14 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Future<void> _switchDatabase() async {
     Navigator.of(context).pop(); // close drawer
 
-    final existing = await DatabaseHelper.findExistingDatabases();
+    final List<String> existing = await DatabaseHelper.findExistingDatabases();
     if (!mounted) return;
 
     // On web, identify the current DB by net name; on desktop by file path.
-    final currentId =
+    final String currentId =
         kIsWeb ? DatabaseHelper.currentCity : DatabaseHelper.dbPath;
 
-    final chosen = await showDialog<String>(
+    final String? chosen = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Switch Database'),
@@ -829,7 +829,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                 const SizedBox(height: 8),
                 ...existing.map((path) {
                   final isCurrent = path == currentId;
-                  final title =
+                  final String title =
                       kIsWeb ? path : p.basenameWithoutExtension(path);
                   return ListTile(
                     leading: Icon(
@@ -879,7 +879,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     if (chosen == '_pick_file_') {
       // Desktop-only: let user pick a file with FilePicker.
-      final result = await _pickDatabaseFile();
+      final String? result = await _pickDatabaseFile();
       if (result == null) return;
       pathToOpen = result;
     } else {
@@ -903,11 +903,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Future<void> _saveDatabaseAs() async {
     Navigator.of(context).pop(); // close drawer
-    final sourcePath = DatabaseHelper.dbPath;
+    final String sourcePath = DatabaseHelper.dbPath;
     if (sourcePath.isEmpty) return;
 
     try {
-      final success = await saveDatabaseCopy(sourcePath);
+      final bool success = await saveDatabaseCopy(sourcePath);
       if (!success || !mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Database saved.')),
@@ -923,7 +923,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Future<void> _exportDatabase() async {
     Navigator.of(context).pop(); // close drawer
     try {
-      final bytes = await DatabaseHelper.exportDatabaseBytes();
+      final Uint8List? bytes = await DatabaseHelper.exportDatabaseBytes();
       if (bytes == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -931,7 +931,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         );
         return;
       }
-      final city = DatabaseHelper.currentCity;
+      final String city = DatabaseHelper.currentCity;
       final filename = city.isNotEmpty
           ? '${city.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}-weekly-net.sqlite'
           : 'database.sqlite';
@@ -951,17 +951,16 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Future<void> _importDatabase() async {
     Navigator.of(context).pop(); // close drawer
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
         withData: true,
       );
       if (result == null || result.files.isEmpty) return;
-      final file = result.files.single;
-      final bytes = file.bytes;
+      final PlatformFile file = result.files.single;
+      final Uint8List? bytes = file.bytes;
       if (bytes == null) return;
 
       // Infer net name from filename, or prompt user.
-      String netName = file.name
+      final String netName = file.name
           .replaceAll(RegExp(r'\.sqlite$'), '')
           .replaceAll('-weekly-net', '')
           .replaceAll(RegExp(r'[-_]+'), ' ')
@@ -969,7 +968,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
       if (!mounted) return;
       final ctrl = TextEditingController(text: netName);
-      final confirmedName = await showDialog<String>(
+      final String? confirmedName = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Import Database'),
@@ -1025,11 +1024,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     Navigator.of(context).pop(); // close drawer
 
     // On web: key is the net name; on desktop: key is the file path.
-    final key =
+    final String key =
         kIsWeb ? DatabaseHelper.currentCity : DatabaseHelper.dbPath;
-    final name = DatabaseHelper.currentCity;
+    final String name = DatabaseHelper.currentCity;
 
-    final result = await showDialog<_RemoveAction>(
+    final _RemoveAction? result = await showDialog<_RemoveAction>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove database'),
@@ -1065,10 +1064,10 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
 
     if (!mounted) return;
-    final existing = await DatabaseHelper.findExistingDatabases();
+    final List<String> existing = await DatabaseHelper.findExistingDatabases();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => SetupScreen(existingPaths: existing),
       ),
     );
@@ -1077,14 +1076,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   // ── Header section (week selector + net roles) ────────────────────────────
 
   Widget _buildHeaderSection() {
-    return Padding(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildWeekCard(),
           const SizedBox(width: 16),
-          Expanded(child: _buildNetRolesTable()),
+          _buildNetRolesTable(),
         ],
       ),
     );
@@ -1122,7 +1122,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                   tooltip: 'Jump to today',
                   onPressed: () async {
                     _weekEnding = DateTime.now();
-                    final prefs = await SharedPreferences.getInstance();
+                    final SharedPreferences prefs = await SharedPreferences.getInstance();
                     await prefs.setString('last_selected_date', _weekEnding.toIso8601String());
                     await _load();
                   },
@@ -1153,7 +1153,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       border: TableBorder.all(color: Colors.grey.shade400),
       columnWidths: const {
         0: IntrinsicColumnWidth(),
-        1: FixedColumnWidth(200),
+        1: IntrinsicColumnWidth(),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
@@ -1201,7 +1201,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Widget _netRoleCell(String day, String role) {
-    final text = _netRoleDisplay(day, role);
+    final String text = _netRoleDisplay(day, role);
     return GestureDetector(
       onTap: () => _editNetRole(day, role),
       child: Container(
@@ -1220,15 +1220,15 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   String _netRoleDisplay(String day, String role) {
-    final data = _netRoles['$day|$role'];
+    final Map<String, dynamic>? data = _netRoles['$day|$role'];
     if (data == null) return '';
     final override = data['display_name'] as String?;
     if (override != null && override.isNotEmpty) return override;
     final first = data['first_name'] as String?;
     if (first == null) return '';
     final last = data['last_name'] as String?;
-    final call = data['fcc_callsign'] as String? ?? '?';
-    final name = (last != null && last.isNotEmpty) ? '$first ${last[0]}' : first;
+    final String call = data['fcc_callsign'] as String? ?? '?';
+    final String name = (last != null && last.isNotEmpty) ? '$first ${last[0]}' : first;
     return '$name/$call';
   }
 
@@ -1260,7 +1260,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Widget _buildTableHeader({double extraW = 0}) {
     const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
-    return Container(
+    return ColoredBox(
       color: Colors.grey.shade300,
       child: Row(
         children: [
@@ -1273,7 +1273,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           _sortableHdrCell('City', _wCity, style, _SortColumn.city),
           _hdrCell('Neighborhood', _wNeighborhood + extraW, style),
           // Rotated "Checked in"
-          SizedBox(
+          const SizedBox(
             width: _wCheckedIn,
             height: 60,
             child: Center(
@@ -1335,11 +1335,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Widget _buildPersonRow(Person person, int rowIndex, {double extraW = 0}) {
-    final methods = _checkins[person.id] ?? {};
-    final checkedIn = methods.isNotEmpty;
+    final Set<String> methods = _checkins[person.id] ?? {};
+    final bool checkedIn = methods.isNotEmpty;
 
     // Alternating colors: white and light blue
-    final bg = rowIndex.isEven ? Colors.white : Colors.blue.shade50;
+    final Color bg = rowIndex.isEven ? Colors.white : Colors.blue.shade50;
 
     return Container(
       height: _rowH,
@@ -1425,7 +1425,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Widget _buildTotalsRow(List<Person> persons, {double extraW = 0}) {
     final counts = <String, int>{};
     for (final p in persons) {
-      for (final m in _checkins[p.id] ?? {}) {
+      for (final String m in _checkins[p.id] ?? <String>{}) {
         counts[m] = (counts[m] ?? 0) + 1;
       }
     }
@@ -1440,7 +1440,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       ),
       child: Row(
         children: [
-          SizedBox(width: _wGmrs + _wCall + _wName),
+          const SizedBox(width: _wGmrs + _wCall + _wName),
           ...kCheckInMethods.map((m) => Container(
                 width: _wMethod,
                 decoration: BoxDecoration(
@@ -1462,7 +1462,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     const labelStyle = TextStyle(fontSize: 13, color: Colors.black54);
     const countStyle = TextStyle(
         fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87);
-    const dividerColor = Colors.black26;
+    const Color dividerColor = Colors.black26;
 
     Widget stat(String label, int count) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1479,16 +1479,19 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     return Container(
       color: Colors.grey.shade100,
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          stat('Non-GMRS Member Check-ins:', _hamOnlyCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('All Member Check-ins:', _includingGmrsCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('Non-GMRS Guest Check-ins:', _guestHamOnlyCount),
-          const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
-          stat('All Guest Check-ins:', _guestIncludingGmrsCount),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            stat('Non-GMRS Member Check-ins:', _hamOnlyCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('All Member Check-ins:', _includingGmrsCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('Non-GMRS Guest Check-ins:', _guestHamOnlyCount),
+            const VerticalDivider(color: dividerColor, width: 1, thickness: 1),
+            stat('All Guest Check-ins:', _guestIncludingGmrsCount),
+          ],
+        ),
       ),
     );
   }
@@ -1546,7 +1549,7 @@ class _HighlightedDatePickerDialogState
     super.initState();
     _selectedDate = widget.initialDate;
     _displayedMonth =
-        DateTime(widget.initialDate.year, widget.initialDate.month, 1);
+        DateTime(widget.initialDate.year, widget.initialDate.month);
   }
 
   bool _isHighlighted(DateTime day) =>
@@ -1554,20 +1557,20 @@ class _HighlightedDatePickerDialogState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final primary = colorScheme.primary;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final Color primary = colorScheme.primary;
     final today = DateTime.now();
 
-    final year = _displayedMonth.year;
-    final month = _displayedMonth.month;
-    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final int year = _displayedMonth.year;
+    final int month = _displayedMonth.month;
+    final int daysInMonth = DateTime(year, month + 1, 0).day;
     // Sunday = 0 offset (DateTime.monday==1 … DateTime.sunday==7, so %7 maps sunday→0)
-    final leadingBlanks = DateTime(year, month, 1).weekday % 7;
+    final int leadingBlanks = DateTime(year, month).weekday % 7;
 
-    final canGoPrev = DateTime(year, month - 1 + 1, 0)
+    final bool canGoPrev = DateTime(year, month - 1 + 1, 0)
         .isAfter(widget.firstDate.subtract(const Duration(days: 1)));
-    final canGoNext =
-        DateTime(year, month + 1, 1).isBefore(widget.lastDate.add(const Duration(days: 1)));
+    final bool canGoNext =
+        DateTime(year, month + 1).isBefore(widget.lastDate.add(const Duration(days: 1)));
 
     return AlertDialog(
       contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -1584,7 +1587,7 @@ class _HighlightedDatePickerDialogState
                   icon: const Icon(Icons.chevron_left),
                   onPressed: canGoPrev
                       ? () => setState(() => _displayedMonth =
-                          DateTime(year, month - 1, 1))
+                          DateTime(year, month - 1))
                       : null,
                 ),
                 Text(
@@ -1595,7 +1598,7 @@ class _HighlightedDatePickerDialogState
                   icon: const Icon(Icons.chevron_right),
                   onPressed: canGoNext
                       ? () => setState(() => _displayedMonth =
-                          DateTime(year, month + 1, 1))
+                          DateTime(year, month + 1))
                       : null,
                 ),
               ],
@@ -1628,13 +1631,13 @@ class _HighlightedDatePickerDialogState
               itemCount: leadingBlanks + daysInMonth,
               itemBuilder: (context, index) {
                 if (index < leadingBlanks) return const SizedBox.shrink();
-                final day = index - leadingBlanks + 1;
+                final int day = index - leadingBlanks + 1;
                 final date = DateTime(year, month, day);
-                final inRange = !date.isBefore(widget.firstDate) &&
+                final bool inRange = !date.isBefore(widget.firstDate) &&
                     !date.isAfter(widget.lastDate);
-                final isSelected = _sameDay(date, _selectedDate);
-                final isToday = _sameDay(date, today);
-                final highlighted = _isHighlighted(date);
+                final bool isSelected = _sameDay(date, _selectedDate);
+                final bool isToday = _sameDay(date, today);
+                final bool highlighted = _isHighlighted(date);
 
                 return GestureDetector(
                   onTap: inRange

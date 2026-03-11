@@ -7,10 +7,10 @@ import '../utils/file_io.dart';
 import 'weekly_checkin_screen.dart';
 
 class SetupScreen extends StatefulWidget {
-  /// If non-empty, existing database paths (or names on web) are shown.
-  final List<String> existingPaths;
 
   const SetupScreen({super.key, this.existingPaths = const []});
+  /// If non-empty, existing database paths (or names on web) are shown.
+  final List<String> existingPaths;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -35,12 +35,12 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _removeDatabase(String path) async {
-    final displayName =
+    final String displayName =
         kIsWeb ? path : p.basenameWithoutExtension(path);
 
     if (kIsWeb) {
       // On web: only remove from list, no file to delete.
-      final confirmed = await showDialog<bool>(
+      final bool? confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Remove net'),
@@ -64,7 +64,7 @@ class _SetupScreenState extends State<SetupScreen> {
     }
 
     // Desktop: offer hide or delete.
-    final result = await showDialog<_RemoveAction>(
+    final _RemoveAction? result = await showDialog<_RemoveAction>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove database'),
@@ -100,13 +100,13 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _pickAndLoad() async {
-    final path = await pickDatabaseFile();
+    final String? path = await pickDatabaseFile();
     if (path == null) return;
     await _openExisting(path);
   }
 
   Future<void> _createNew() async {
-    final city = _cityController.text.trim();
+    final String city = _cityController.text.trim();
     if (city.isEmpty) {
       setState(() => _error = 'Please enter a city or net name.');
       return;
@@ -128,7 +128,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void _goHome() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const WeeklyCheckinScreen()),
+      MaterialPageRoute<void>(builder: (_) => const WeeklyCheckinScreen()),
     );
   }
 
@@ -160,7 +160,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         const SizedBox(height: 8),
                         ..._paths.map(
                           (path) {
-                            final title = kIsWeb
+                            final String title = kIsWeb
                                 ? path
                                 : p.basenameWithoutExtension(path);
                             return ListTile(

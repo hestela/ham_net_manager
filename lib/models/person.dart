@@ -1,14 +1,4 @@
 class Person {
-  /// 0 means unsaved (not yet in the database).
-  final int id;
-  final String firstName;
-  final String? lastName;
-  final String? fccCallsign;
-  final String? gmrsCallsign;
-  final bool isMember;
-  final bool isActive;
-  final String? city;
-  final String? neighborhood;
 
   const Person({
     this.id = 0,
@@ -22,17 +12,6 @@ class Person {
     this.neighborhood,
   });
 
-  /// e.g. "Bob H" or "Kelly A"
-  String get displayName {
-    if (lastName != null && lastName!.isNotEmpty) {
-      return '$firstName ${lastName![0]}';
-    }
-    return firstName;
-  }
-
-  /// e.g. "Bob H/KD234" — used in net roles cells
-  String get roleLabel => '$displayName/${fccCallsign ?? '?'}';
-
   factory Person.fromMap(Map<String, dynamic> m) => Person(
         id: m['id'] as int,
         firstName: m['first_name'] as String,
@@ -44,6 +23,27 @@ class Person {
         city: m['city'] as String?,
         neighborhood: m['neighborhood'] as String?,
       );
+  /// 0 means unsaved (not yet in the database).
+  final int id;
+  final String firstName;
+  final String? lastName;
+  final String? fccCallsign;
+  final String? gmrsCallsign;
+  final bool isMember;
+  final bool isActive;
+  final String? city;
+  final String? neighborhood;
+
+  /// e.g. "Bob H" or "Kelly A"
+  String get displayName {
+    if (lastName != null && lastName!.isNotEmpty) {
+      return '$firstName ${lastName![0]}';
+    }
+    return firstName;
+  }
+
+  /// e.g. "Bob H/KD234" — used in net roles cells
+  String get roleLabel => '$displayName/${fccCallsign ?? '?'}';
 
   /// All fields except id — used for INSERT and UPDATE.
   Map<String, dynamic> toMap() => {
