@@ -473,7 +473,7 @@ packages:
     source: hosted
     version: "2.0.0"
   msix:
-    dependency: "direct main"
+    dependency: "direct dev"
     description:
       name: msix
       sha256: b6b08e7a7b5d1845f2b1d31216d5b1fb558e98251efefe54eb79ed00d27bc2ac

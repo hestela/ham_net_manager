@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.4.0+1
+version: 1.5.0+1
 
 environment:
   sdk: ^3.11.1
@@ -39,7 +39,6 @@ dependencies:
   csv: ^7.2.0
   shared_preferences: ^2.3.0
   flutter_markdown_plus: ^1.0.7
-  msix: ^3.16.13
 
 dev_dependencies:
   flutter_test:
@@ -53,6 +52,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: ^2.32.0
   build_runner: ^2.4.13
+  msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -101,7 +101,7 @@ msix_config:
   publisher_display_name: HamNetManager
   identity_name: com.hamnetmanager.app
   publisher: CN=HamNetManager
-  msix_version: 1.4.0.0
+  msix_version: 1.5.0.0
   logo_path: windows/icons/256.png
   certificate_path: certs/ham_net_manager.pfx
   install_certificate: false
