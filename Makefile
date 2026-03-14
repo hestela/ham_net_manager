@@ -1,4 +1,4 @@
-.PHONY: help build-linux build-appimage build-windows-installer clean run analyze test sync-version
+.PHONY: help build-linux build-appimage build-windows-installer clean run analyze test sync-version bump-patch bump-minor bump-major
 
 help:
 	@echo "Ham Net Manager - Build Commands"
@@ -17,9 +17,23 @@ help:
 	@echo "Cleanup:"
 	@echo "  make clean                    - Remove build artifacts"
 	@echo ""
+	@echo "Versioning:"
+	@echo "  make bump-patch               - Bump patch version (1.2.3 -> 1.2.4)"
+	@echo "  make bump-minor               - Bump minor version (1.2.3 -> 1.3.0)"
+	@echo "  make bump-major               - Bump major version (1.2.3 -> 2.0.0)"
+	@echo ""
 
 sync-version:
 	./scripts/sync_version.sh
+
+bump-patch:
+	./scripts/sync_version.sh --patch
+
+bump-minor:
+	./scripts/sync_version.sh --minor
+
+bump-major:
+	./scripts/sync_version.sh --major
 
 run: sync-version
 	flutter run -d linux
