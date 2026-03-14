@@ -106,6 +106,9 @@ class DatabaseHelper {
       _currentSlug = slug;
       _db = openAppDatabase(name: slug, filePath: path);
 
+      // Ensure it's no longer hidden (handles re-opening after "Remove from list").
+      await platformUnhideDatabase(path);
+
       // If outside app directory, save to recent databases list.
       if (!path.startsWith(dirPath)) {
         await platformAddRecentDatabase(path);

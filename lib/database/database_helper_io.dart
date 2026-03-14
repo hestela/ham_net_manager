@@ -60,3 +60,10 @@ Future<void> platformAddRecentDatabase(String path) async {
     ..add(path);
   await prefs.setStringList(_recentDatabasesPrefKey, recent.toList());
 }
+
+Future<void> platformUnhideDatabase(String path) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final Set<String> hidden = (prefs.getStringList(_hiddenPrefKey) ?? []).toSet()
+    ..remove(path);
+  await prefs.setStringList(_hiddenPrefKey, hidden.toList());
+}
