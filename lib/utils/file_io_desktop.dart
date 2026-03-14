@@ -98,6 +98,28 @@ Future<String?> pickDatabaseFile() async {
   return result.files.single.path;
 }
 
+/// Saves [bytes] to an xlsx file. On desktop, prompts with a save dialog.
+/// On Android, auto-saves to the app's documents directory.
+/// Returns the saved path, or null if cancelled.
+Future<String?> saveXlsxFile(String defaultFilename, List<int> bytes) async {
+  if (Platform.isAndroid) {
+    final Directory dir = await getApplicationDocumentsDirectory();
+    final path = '${dir.path}/$defaultFilename';
+    await File(path).writeAsBytes(bytes);
+    return path;
+  }
+
+  final String? path = await FilePicker.platform.saveFile(
+    dialogTitle: 'Save Excel File',
+    fileName: defaultFilename,
+    type: FileType.custom,
+    allowedExtensions: ['xlsx'],
+  );
+  if (path == null) return null;
+  await File(path).writeAsBytes(bytes);
+  return path;
+}
+
 /// No-op on desktop/Android — web only.
 void saveDatabaseFile(String filename, Uint8List bytes) {}
 

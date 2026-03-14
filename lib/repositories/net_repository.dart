@@ -23,6 +23,21 @@ const kNetRoleDay = 'today';
 const kNetRoles = ['net_control', 'scribe'];
 const kNetRoleLabels = {'net_control': 'Net Control:', 'scribe': 'Scribe:'};
 
+class WeekSummary {
+  const WeekSummary({
+    required this.weekEnding,
+    required this.hamOnlyMembers,
+    required this.allMembers,
+    required this.hamOnlyGuests,
+    required this.allGuests,
+  });
+  final DateTime weekEnding;
+  final int hamOnlyMembers;
+  final int allMembers;
+  final int hamOnlyGuests;
+  final int allGuests;
+}
+
 class NetRepository {
   static AppDatabase get _db => DatabaseHelper.db;
 
@@ -382,6 +397,88 @@ class NetRepository {
         );
       }
     }
+  }
+
+  // ── Reports ────────────────────────────────────────────────────────────────
+
+  /// Returns one [WeekSummary] per week in [start]..[end] that has checkins.
+  static Future<List<WeekSummary>> loadWeekSummaries(
+      DateTime start, DateTime end) async {
+    final List<QueryRow> rows = await _db.customSelect('''
+      SELECT w.week_ending, p.is_member, c.id AS checkin_id, cm.method
+      FROM weeks w
+      JOIN checkins c ON c.week_id = w.id
+      JOIN checkin_methods cm ON cm.checkin_id = c.id
+      JOIN persons p ON p.id = c.person_id
+      WHERE w.week_ending >= ? AND w.week_ending <= ?
+      ORDER BY w.week_ending ASC
+    ''', variables: _vars([_dateStr(start), _dateStr(end)])).get();
+
+    // Group: weekEnding → checkinId → {isMember, methods}
+    final Map<String, Map<int, ({bool isMember, Set<String> methods})>> byWeek =
+        {};
+    for (final row in rows) {
+      final weekEnding = row.data['week_ending'] as String;
+      final checkinId = row.data['checkin_id'] as int;
+      final isMember = (row.data['is_member'] as int) == 1;
+      final method = row.data['method'] as String;
+      byWeek.putIfAbsent(weekEnding, () => {});
+      byWeek[weekEnding]!.putIfAbsent(
+          checkinId, () => (isMember: isMember, methods: {}));
+      byWeek[weekEnding]![checkinId]!.methods.add(method);
+    }
+
+    final summaries = <WeekSummary>[];
+    for (final MapEntry<String, Map<int, ({bool isMember, Set<String> methods})>> entry
+        in byWeek.entries) {
+      var hamOnlyMembers = 0;
+      var allMembers = 0;
+      var hamOnlyGuests = 0;
+      var allGuests = 0;
+      for (final ({bool isMember, Set<String> methods}) ci
+          in entry.value.values) {
+        final bool hasAny = ci.methods.isNotEmpty;
+        final bool hasHamOnly =
+            ci.methods.any((m) => kHamOnlyMethods.contains(m));
+        if (ci.isMember) {
+          if (hasAny) allMembers++;
+          if (hasHamOnly) hamOnlyMembers++;
+        } else {
+          if (hasAny) allGuests++;
+          if (hasHamOnly) hamOnlyGuests++;
+        }
+      }
+      summaries.add(WeekSummary(
+        weekEnding: DateTime.parse(entry.key),
+        hamOnlyMembers: hamOnlyMembers,
+        allMembers: allMembers,
+        hamOnlyGuests: hamOnlyGuests,
+        allGuests: allGuests,
+      ));
+    }
+    return summaries;
+  }
+
+  /// Returns one row per (person, week) in [start]..[end].
+  /// Each map has a 'methods' key with comma-separated method names.
+  static Future<List<Map<String, dynamic>>> loadCheckinsForRange(
+      DateTime start, DateTime end) async {
+    final List<QueryRow> rows = await _db.customSelect('''
+      SELECT w.week_ending,
+             p.first_name, p.last_name, p.fcc_callsign, p.gmrs_callsign,
+             p.is_member, p.city, p.neighborhood,
+             GROUP_CONCAT(cm.method) AS methods
+      FROM weeks w
+      JOIN checkins c ON c.week_id = w.id
+      JOIN checkin_methods cm ON cm.checkin_id = c.id
+      JOIN persons p ON p.id = c.person_id
+      WHERE w.week_ending >= ? AND w.week_ending <= ?
+      GROUP BY w.week_ending, p.id
+      ORDER BY w.week_ending ASC,
+               p.last_name COLLATE NOCASE ASC,
+               p.first_name COLLATE NOCASE ASC
+    ''', variables: _vars([_dateStr(start), _dateStr(end)])).get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

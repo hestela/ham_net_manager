@@ -33,6 +33,19 @@ Future<String?> pickCsvContent() async {
   return utf8.decode(bytes);
 }
 
+/// Triggers a browser download of [bytes] as an xlsx file named [defaultFilename].
+Future<String?> saveXlsxFile(String defaultFilename, List<int> bytes) async {
+  final blob = html.Blob(
+      [Uint8List.fromList(bytes)],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  final String url = html.Url.createObjectUrlFromBlob(blob);
+  html.AnchorElement(href: url)
+    ..setAttribute('download', defaultFilename)
+    ..click();
+  html.Url.revokeObjectUrl(url);
+  return defaultFilename;
+}
+
 /// Not supported on web — always returns false.
 Future<bool> saveDatabaseCopy(String sourcePath) async => false;
 
