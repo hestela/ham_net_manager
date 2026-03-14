@@ -5,7 +5,8 @@ A Flutter application for managing ham radio nets on Linux (including Raspberry 
 
 ## Features
 - **Multiple Nets and export/import**: Each Net is contained within a SQLite database file that can be imported/exported or overwritten, allowing you to share the database with other operators. App keeps track of what databse files you have opened.
-- **Import/Export via CSV files**: Can import/export radio operator data (ie callsign, name, city). Check-in data can be exported to CSV for each date.
+- **Import/Export via CSV files**: Can import/export radio operator data (ie callsign, name, city).
+- **Excel/XLSX Reports**: XLSX files can be generated in the reports page that include the check-ins and summary date from a date range.
 - **Markdown Net Control Scripts**: Each net can have its own script with most markdown syntax supported including tables. A few variables are provided to insert your own callsign into the net script.
 - **Member Management**: Add/remove radio operators to the net as needed. Operators are stored in each net's database file.
 - **Operator search**: Fuzzy search for ham radio operators by multiple fields (ie callsign, first name, city) in the main check-in UI and member management screen.
@@ -106,3 +107,6 @@ the icon at the top left of the main check-in UI has a so called "hamburger menu
 All fields are optional. This data persists between sessions and nets (it is stored in its own json file).
 <img src="screenshots/your-info.webp" width="350" />
 
+### Reports
+Select your date range with start-end, or select the end date and then use the 1 day, 1 week, 2 week or 4 week buttons to update the start date to the end date minus the specified time range. Reports are generated into excel sheets. It includes a tab with the summary of each days checkins and a second tab with the details of all checkins from the date range.
+<img src="screenshots/reports.webp" width="350" />

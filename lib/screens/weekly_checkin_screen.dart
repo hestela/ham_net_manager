@@ -1,6 +1,5 @@
 import 'dart:io' show Platform;
 
-import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +15,7 @@ import '../utils/file_io.dart';
 import 'manage_cities_screen.dart';
 import 'manage_persons_screen.dart';
 import 'net_control_script_dialog.dart';
+import 'reports_screen.dart';
 import 'setup_screen.dart';
 
 // ── Column widths ─────────────────────────────────────────────────────────────
@@ -163,58 +163,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_selected_date', _weekEnding.toIso8601String());
       await _load();
-    }
-  }
-
-  // ── CSV export ──────────────────────────────────────────────────────────────
-
-  String _sanitizeFilename(String name) {
-    // Replace spaces and forward slashes with hyphens for cross-platform compatibility
-    return name.replaceAll(RegExp(r'[\s/]+'), '-');
-  }
-
-  Future<void> _exportCsv() async {
-    final dateStr =
-        '${_weekEnding.year}-${_weekEnding.month.toString().padLeft(2, '0')}-${_weekEnding.day.toString().padLeft(2, '0')}';
-
-    // Header row
-    final List<String> header = [
-      'GMRS Callsign',
-      'FCC Callsign',
-      'Name',
-      ...kCheckInMethods.map((m) => kMethodLabels[m]!.replaceAll('\n', ' ')),
-      'City',
-      'Neighborhood',
-      'Checked In',
-    ];
-
-    // Data rows — only persons who checked in
-    final rows = <List<String>>[];
-    for (final Person person in _persons) {
-      final Set<String> methods = _checkins[person.id] ?? {};
-      if (methods.isEmpty) continue;
-      rows.add([
-        person.gmrsCallsign ?? '',
-        person.fccCallsign ?? '',
-        person.displayName,
-        ...kCheckInMethods.map((m) => methods.contains(m) ? 'X' : ''),
-        person.city ?? '',
-        person.neighborhood ?? '',
-        'Yes',
-      ]);
-    }
-
-    final String csv = const CsvEncoder().convert([header, ...rows]);
-
-    final String sanitizedNetName = _sanitizeFilename(DatabaseHelper.currentCity);
-    final String? savedPath =
-        await saveCsvFile('$sanitizedNetName-$dateStr.csv', csv);
-    if (savedPath == null) return;
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported ${rows.length} check-ins.')),
-      );
     }
   }
 
@@ -390,9 +338,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.file_download),
-            tooltip: 'Export CSV',
-            onPressed: _exportCsv,
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Reports',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ReportsScreen()),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.location_city),
