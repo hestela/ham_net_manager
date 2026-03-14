@@ -220,26 +220,14 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
         title: const Text('Manage Cities & Neighborhoods'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'add_cities_bulk',
-            onPressed: _addMultipleCities,
-            tooltip: 'Paste list of cities',
-            child: const Icon(Icons.format_list_bulleted_add),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'add_city',
-            onPressed: _addCity,
-            tooltip: 'Add city',
-            child: const Icon(Icons.add),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'add_cities_bulk',
+        onPressed: _addMultipleCities,
+        tooltip: 'Paste list of cities',
+        child: const Icon(Icons.format_list_bulleted_add),
       ),
       body: _cities.isEmpty
-          ? const Center(child: Text('No cities yet. Tap + to add one.'))
+          ? const Center(child: Text('No cities yet. Use the button to add one.'))
           : ListView.builder(
               itemCount: _cities.length,
               itemBuilder: (ctx, i) => _buildCityTile(_cities[i]),
@@ -267,11 +255,6 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
             onPressed: () => _addMultipleNeighborhoods(city),
           ),
           IconButton(
-            icon: const Icon(Icons.add, size: 20),
-            tooltip: 'Add neighborhood',
-            onPressed: () => _addNeighborhood(city),
-          ),
-          IconButton(
             icon: const Icon(Icons.delete_outline, size: 20),
             tooltip: 'Delete city',
             onPressed: () => _deleteCity(city),
@@ -282,7 +265,7 @@ class _ManageCitiesScreenState extends State<ManageCitiesScreen> {
         if (hoods.isEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(72, 0, 16, 12),
-            child: Text('No neighborhoods yet. Tap + to add one.',
+            child: Text('No neighborhoods yet. Use the list button to add one.',
                 style: TextStyle(color: Colors.grey, fontSize: 13)),
           ),
         ...hoods.map((hood) => ListTile(
