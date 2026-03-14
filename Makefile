@@ -1,4 +1,4 @@
-.PHONY: help build-linux build-appimage build-windows-installer clean run analyze test
+.PHONY: help build-linux build-appimage build-windows-installer clean run analyze test sync-version
 
 help:
 	@echo "Ham Net Manager - Build Commands"
@@ -18,20 +18,23 @@ help:
 	@echo "  make clean                    - Remove build artifacts"
 	@echo ""
 
-run:
+sync-version:
+	./scripts/sync_version.sh
+
+run: sync-version
 	flutter run -d linux
 
-build-linux:
+build-linux: sync-version
 	flutter build linux --release
 	@echo ""
 	@echo "✓ Linux build complete at: build/linux/x64/release/bundle/"
 
-build-appimage:
+build-appimage: sync-version
 	@command -v appimagetool >/dev/null 2>&1 || \
 		{ echo "Error: appimagetool not found"; echo "Install with: sudo apt install appimagetool"; exit 1; }
 	./scripts/build_appimage.sh
 
-build-windows-installer:
+build-windows-installer: sync-version
 	powershell -ExecutionPolicy Bypass -File scripts\build_windows_installer.ps1
 
 analyze:

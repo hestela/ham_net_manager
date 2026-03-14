@@ -1,3 +1,3 @@
-// App version constant — keep in sync with pubspec.yaml.
-// Build scripts update this automatically before building.
-const kAppVersion = '1.7.0';
+// App version constant — auto-generated from pubspec.yaml by scripts/sync_version.sh.
+// Do not edit by hand; run 'make sync-version' or any build target instead.
+const kAppVersion = '1.8.0';
