@@ -136,6 +136,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
       IntCellValue(_summaries.fold(0, (sum, s) => sum + s.allGuests)),
     ], bold: true);
 
+    // Column widths for Daily Counts sheet
+    countsSheet.setColumnWidth(0, 13); // Date
+    countsSheet.setColumnWidth(1, 20); // Non-GMRS Members
+    countsSheet.setColumnWidth(2, 14); // All Members
+    countsSheet.setColumnWidth(3, 18); // Non-GMRS Guests
+    countsSheet.setColumnWidth(4, 13); // All Guests
+
     // ── Sheet 2: Check-ins ────────────────────────────────────────────────────
     final Sheet detailSheet = excel['Check-ins'];
 
@@ -169,6 +176,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
         TextCellValue(row['neighborhood'] as String? ?? ''),
       ]);
     }
+
+    // Column widths for Check-ins sheet
+    detailSheet.setColumnWidth(0, 13);  // Date
+    detailSheet.setColumnWidth(1, 16);  // GMRS Callsign
+    detailSheet.setColumnWidth(2, 14);  // FCC Callsign
+    detailSheet.setColumnWidth(3, 22);  // Name
+    detailSheet.setColumnWidth(4, 14);  // Member/Guest
+    detailSheet.setColumnWidth(5, 18);  // Repeater Check-In
+    detailSheet.setColumnWidth(6, 17);  // Simplex Check-In
+    detailSheet.setColumnWidth(7, 15);  // Active on DMR
+    detailSheet.setColumnWidth(8, 18);  // GMRS Net Check-in
+    detailSheet.setColumnWidth(9, 16);  // Packet Check-In
+    detailSheet.setColumnWidth(10, 14); // Active on HF
+    detailSheet.setColumnWidth(11, 16); // City
+    detailSheet.setColumnWidth(12, 16); // Neighborhood
 
     // ── Save ──────────────────────────────────────────────────────────────────
     String fmtDate(DateTime dt) =>
