@@ -4,15 +4,21 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Saves [content] to a CSV file. On desktop, prompts the user with a save
-/// dialog. On Android, auto-saves to the app's documents directory.
+/// dialog. On Android, shows the system share sheet.
 /// Returns the saved path, or null if cancelled.
 Future<String?> saveCsvFile(String defaultFilename, String content) async {
   if (Platform.isAndroid) {
-    final Directory dir = await getApplicationDocumentsDirectory();
+    final Directory dir = await getTemporaryDirectory();
     final path = '${dir.path}/$defaultFilename';
     await File(path).writeAsString(content);
+    final ShareResult result = await Share.shareXFiles(
+      [XFile(path, mimeType: 'text/csv')],
+      subject: defaultFilename,
+    );
+    if (result.status == ShareResultStatus.dismissed) return null;
     return path;
   }
 
@@ -99,13 +105,18 @@ Future<String?> pickDatabaseFile() async {
 }
 
 /// Saves [bytes] to an xlsx file. On desktop, prompts with a save dialog.
-/// On Android, auto-saves to the app's documents directory.
+/// On Android, shows the system share sheet.
 /// Returns the saved path, or null if cancelled.
 Future<String?> saveXlsxFile(String defaultFilename, List<int> bytes) async {
   if (Platform.isAndroid) {
-    final Directory dir = await getApplicationDocumentsDirectory();
+    final Directory dir = await getTemporaryDirectory();
     final path = '${dir.path}/$defaultFilename';
     await File(path).writeAsBytes(bytes);
+    final ShareResult result = await Share.shareXFiles(
+      [XFile(path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+      subject: defaultFilename,
+    );
+    if (result.status == ShareResultStatus.dismissed) return null;
     return path;
   }
 
