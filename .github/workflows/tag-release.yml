@@ -9,6 +9,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check actor
+        if: github.actor != 'hestela'
+        run: |
+          echo "Unauthorized: only the repo owner can trigger this workflow."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - name: Read version from pubspec.yaml
