@@ -226,6 +226,75 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _rangeEnd != null &&
       _rangeStart!.isAfter(_rangeEnd!);
 
+  static const double _wDate = 120.0;
+  static const double _wNum = 130.0;
+  static const double _tableWidth = _wDate + _wNum * 4;
+  static const double _rowH = 40.0;
+
+  Widget _buildTableHeader() {
+    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 13);
+    return ColoredBox(
+      color: Colors.grey.shade300,
+      child: Row(
+        children: [
+          SizedBox(
+              width: _wDate,
+              child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Text('Date', style: style))),
+          SizedBox(
+              width: _wNum,
+              child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Text('Non-GMRS\nMembers', style: style))),
+          SizedBox(
+              width: _wNum,
+              child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Text('All\nMembers', style: style))),
+          SizedBox(
+              width: _wNum,
+              child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Text('Non-GMRS\nGuests', style: style))),
+          SizedBox(
+              width: _wNum,
+              child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Text('All\nGuests', style: style))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(String date, int hamMembers, int allMembers,
+      int hamGuests, int allGuests,
+      {bool bold = false, Color? color}) {
+    final style =
+        TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal);
+    Widget cell(String text, double w) => SizedBox(
+          width: w,
+          height: _rowH,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Align(
+                alignment: Alignment.centerLeft, child: Text(text, style: style)),
+          ),
+        );
+    return ColoredBox(
+      color: color ?? Colors.transparent,
+      child: Row(
+        children: [
+          cell(date, _wDate),
+          cell('$hamMembers', _wNum),
+          cell('$allMembers', _wNum),
+          cell('$hamGuests', _wNum),
+          cell('$allGuests', _wNum),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,13 +304,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Date range row ──────────────────────────────────────
-                  Row(
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Controls (fixed, horizontally scrollable) ────────────
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
                     children: [
                       const Text('Start:'),
                       const SizedBox(width: 8),
@@ -276,20 +347,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 ? null
                                 : () {
                                     setState(() => _rangeStart =
-                                        _rangeEnd!.subtract(Duration(days: days)));
+                                        _rangeEnd!
+                                            .subtract(Duration(days: days)));
                                     _loadSummaries();
                                   },
                             child: Text(label),
                           ),
                         ),
-                      const Spacer(),
+                      const SizedBox(width: 16),
                       ElevatedButton.icon(
                         icon: _exporting
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
                               )
                             : const Icon(Icons.download),
                         label: const Text('Download XLSX Report'),
@@ -299,83 +371,104 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ],
                   ),
+                ),
 
-                  // ── Validation error ────────────────────────────────────
-                  if (_rangeInvalid)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Start date must be before end date.',
-                        style: TextStyle(color: Colors.red),
-                      ),
+                if (_rangeInvalid)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      'Start date must be before end date.',
+                      style: TextStyle(color: Colors.red),
                     ),
+                  ),
 
-                  const SizedBox(height: 16),
+                const Divider(height: 1),
 
-                  // ── Summary table ───────────────────────────────────────
-                  if (_loadingSummaries)
-                    const Center(child: CircularProgressIndicator())
-                  else if (_availableWeeks.isEmpty)
-                    const Text('No check-ins recorded yet.')
-                  else if (_summaries.isEmpty)
-                    const Text('No check-ins in selected range.')
-                  else
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('Date')),
-                            DataColumn(
-                                label: Text('Non-GMRS\nMembers'),
-                                numeric: true),
-                            DataColumn(
-                                label: Text('All\nMembers'), numeric: true),
-                            DataColumn(
-                                label: Text('Non-GMRS\nGuests'),
-                                numeric: true),
-                            DataColumn(
-                                label: Text('All\nGuests'), numeric: true),
-                          ],
-                          rows: [
-                            ..._summaries.map((WeekSummary s) {
-                              final DateTime dt = s.weekEnding;
-                              final label =
-                                  '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-                              return DataRow(cells: [
-                                DataCell(Text(label)),
-                                DataCell(Text('${s.hamOnlyMembers}')),
-                                DataCell(Text('${s.allMembers}')),
-                                DataCell(Text('${s.hamOnlyGuests}')),
-                                DataCell(Text('${s.allGuests}')),
-                              ]);
-                            }),
-                            DataRow(cells: [
-                              const DataCell(Text('Total',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                              DataCell(Text(
-                                  '${_summaries.fold(0, (sum, s) => sum + s.hamOnlyMembers)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold))),
-                              DataCell(Text(
-                                  '${_summaries.fold(0, (sum, s) => sum + s.allMembers)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold))),
-                              DataCell(Text(
-                                  '${_summaries.fold(0, (sum, s) => sum + s.hamOnlyGuests)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold))),
-                              DataCell(Text(
-                                  '${_summaries.fold(0, (sum, s) => sum + s.allGuests)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold))),
-                            ]),
-                          ],
-                        ),
-                      ),
+                // ── Table (fills remaining space, scrolls both axes) ─────
+                if (_loadingSummaries)
+                  const Expanded(
+                      child: Center(child: CircularProgressIndicator()))
+                else if (_availableWeeks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No check-ins recorded yet.'),
+                  )
+                else if (_summaries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No check-ins in selected range.'),
+                  )
+                else
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final double w = _tableWidth > constraints.maxWidth
+                            ? _tableWidth
+                            : constraints.maxWidth;
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: w,
+                            child: Column(
+                              children: [
+                                _buildTableHeader(),
+                                const Divider(height: 1),
+                                Flexible(
+                                  child: ListView.separated(
+                                    itemCount: _summaries.length + 1,
+                                    separatorBuilder: (_, __) =>
+                                        const Divider(height: 1),
+                                    itemBuilder: (context, i) {
+                                      if (i < _summaries.length) {
+                                        final WeekSummary s = _summaries[i];
+                                        final DateTime dt = s.weekEnding;
+                                        final label =
+                                            '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+                                        return _buildTableRow(
+                                          label,
+                                          s.hamOnlyMembers,
+                                          s.allMembers,
+                                          s.hamOnlyGuests,
+                                          s.allGuests,
+                                          color: i.isEven
+                                              ? Colors.grey.shade50
+                                              : null,
+                                        );
+                                      } else {
+                                        // Totals row
+                                        return _buildTableRow(
+                                          'Total',
+                                          _summaries.fold(
+                                              0,
+                                              (sum, s) =>
+                                                  sum + s.hamOnlyMembers),
+                                          _summaries.fold(
+                                              0,
+                                              (sum, s) =>
+                                                  sum + s.allMembers),
+                                          _summaries.fold(
+                                              0,
+                                              (sum, s) =>
+                                                  sum + s.hamOnlyGuests),
+                                          _summaries.fold(
+                                              0,
+                                              (sum, s) =>
+                                                  sum + s.allGuests),
+                                          bold: true,
+                                          color: Colors.grey.shade200,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
     );
   }

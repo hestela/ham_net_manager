@@ -49,6 +49,7 @@ if [[ -n "$BUMP" ]]; then
 
   # Update pubspec.yaml
   sed -i "s/^version: .*/version: $NEW_FULL/" "$PUBSPEC"
+  sed -i "s/msix_version: .*/msix_version: $NEW_SEMVER.0/" "$PUBSPEC"
   echo "Version bumped: $FULL_VERSION -> $NEW_FULL"
 
   SEMVER="$NEW_SEMVER"

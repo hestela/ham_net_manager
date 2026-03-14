@@ -1360,28 +1360,31 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   }
 
   Widget _methodCell(Person person, String method, bool checked) {
-    return Container(
-      width: _wMethod,
-      height: _rowH,
-      decoration: BoxDecoration(
-        border: Border(right: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: Checkbox(
-              value: checked,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (v) =>
-                  _toggleMethod(person.id, method, v ?? false),
+    return GestureDetector(
+      onTap: () => _toggleMethod(person.id, method, !checked),
+      child: Container(
+        width: _wMethod,
+        height: _rowH,
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: Colors.grey.shade300)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: checked,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (v) =>
+                    _toggleMethod(person.id, method, v ?? false),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
