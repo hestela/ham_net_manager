@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '!README.md'
-      - '!screenshots/**'
-      - '!docs/**'
   workflow_dispatch:
 
 permissions:
