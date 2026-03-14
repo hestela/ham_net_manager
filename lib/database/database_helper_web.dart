@@ -6,3 +6,5 @@ Future<void> platformRemoveDatabase(String path,
     {bool deleteFile = false}) async {}
 
 Future<void> platformAddRecentDatabase(String path) async {}
+
+Future<void> platformUnhideDatabase(String path) async {}
