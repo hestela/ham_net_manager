@@ -109,4 +109,4 @@ All fields are optional. This data persists between sessions and nets (it is sto
 
 ### Reports
 Select your date range with start-end, or select the end date and then use the 1 day, 1 week, 2 week or 4 week buttons to update the start date to the end date minus the specified time range. Reports are generated into excel sheets. It includes a tab with the summary of each days checkins and a second tab with the details of all checkins from the date range.  
-<img src="screenshots/reports.webp" width="350" />
+![reports](screenshots/reports.webp)
