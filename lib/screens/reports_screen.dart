@@ -180,7 +180,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         DatabaseHelper.currentCity.replaceAll(RegExp(r'[\s/]+'), '-');
     final filename = '$netName-report-$startStr-to-$endStr.xlsx';
 
-    final List<int>? bytes = excel.save();
+    final List<int>? bytes = excel.encode();
 
     if (!mounted) return;
     setState(() => _exporting = false);
