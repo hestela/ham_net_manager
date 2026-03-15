@@ -503,13 +503,40 @@ class NetRepository {
     };
   }
 
+  // Allowlist of tables that may be imported and their permitted columns.
+  static const Map<String, Set<String>> _importAllowlist = {
+    'cities': {'id', 'name'},
+    'neighborhoods': {'id', 'city', 'name'},
+    'persons': {
+      'id', 'first_name', 'last_name', 'fcc_callsign', 'gmrs_callsign',
+      'is_member', 'is_active', 'city', 'neighborhood', 'notes',
+    },
+    'weeks': {'id', 'week_ending'},
+    'checkins': {'id', 'person_id', 'week_id', 'checked_in_at', 'notes'},
+    'checkin_methods': {'id', 'checkin_id', 'method', 'details'},
+    'net_roles': {
+      'id', 'week_id', 'day_of_week', 'role', 'person_id', 'display_name',
+    },
+  };
+
   /// Upserts all records from a previously exported snapshot.
   /// Processes tables in FK-safe order.
   static Future<void> importAllData(Map<String, dynamic> data) async {
     Future<void> upsertAll(
         String table, List<dynamic> rows) async {
+      final Set<String>? allowedColumns = _importAllowlist[table];
+      if (allowedColumns == null) {
+        throw ArgumentError('Import rejected: unknown table "$table".');
+      }
       for (final dynamic row in rows) {
         final map = Map<String, dynamic>.from(row as Map);
+        final invalidColumns =
+            map.keys.where((k) => !allowedColumns.contains(k)).toList();
+        if (invalidColumns.isNotEmpty) {
+          throw ArgumentError(
+            'Import rejected: unknown column(s) ${invalidColumns.join(', ')} in "$table".',
+          );
+        }
         final String keys = map.keys.join(', ');
         final String placeholders = map.keys.map((_) => '?').join(', ');
         await _db.customInsert(
