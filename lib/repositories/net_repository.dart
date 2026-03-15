@@ -481,6 +481,66 @@ class NetRepository {
     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
+  // ── Sync export / import ───────────────────────────────────────────────────
+
+  /// Serializes all user data to a JSON-compatible map.
+  /// The `settings` table is intentionally excluded (local config only).
+  static Future<Map<String, dynamic>> exportAllData() async {
+    Future<List<Map<String, dynamic>>> query(String sql) async {
+      final List<QueryRow> rows = await _db.customSelect(sql).get();
+      return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+    }
+
+    return {
+      'net_name': DatabaseHelper.currentCity,
+      'cities': await query('SELECT * FROM cities'),
+      'neighborhoods': await query('SELECT * FROM neighborhoods'),
+      'persons': await query('SELECT * FROM persons'),
+      'weeks': await query('SELECT * FROM weeks'),
+      'checkins': await query('SELECT * FROM checkins'),
+      'checkin_methods': await query('SELECT * FROM checkin_methods'),
+      'net_roles': await query('SELECT * FROM net_roles'),
+    };
+  }
+
+  /// Upserts all records from a previously exported snapshot.
+  /// Processes tables in FK-safe order.
+  static Future<void> importAllData(Map<String, dynamic> data) async {
+    Future<void> upsertAll(String table, List<dynamic> rows) async {
+      for (final dynamic row in rows) {
+        final map = Map<String, dynamic>.from(row as Map);
+        final String keys = map.keys.join(', ');
+        final String placeholders = map.keys.map((_) => '?').join(', ');
+        await _db.customInsert(
+          'INSERT OR REPLACE INTO $table ($keys) VALUES ($placeholders)',
+          variables: _vars(map.values.toList()),
+        );
+      }
+    }
+
+    final List<dynamic> cities = (data['cities'] as List?) ?? [];
+    final List<dynamic> neighborhoods = (data['neighborhoods'] as List?) ?? [];
+    final List<dynamic> persons = (data['persons'] as List?) ?? [];
+    final List<dynamic> weeks = (data['weeks'] as List?) ?? [];
+    final List<dynamic> checkins = (data['checkins'] as List?) ?? [];
+    final List<dynamic> checkinMethods =
+        (data['checkin_methods'] as List?) ?? [];
+    final List<dynamic> netRoles = (data['net_roles'] as List?) ?? [];
+
+    await upsertAll('cities', cities);
+    await upsertAll('neighborhoods', neighborhoods);
+    await upsertAll('persons', persons);
+    await upsertAll('weeks', weeks);
+    await upsertAll('checkins', checkins);
+    await upsertAll('checkin_methods', checkinMethods);
+    await upsertAll('net_roles', netRoles);
+
+    final netName = data['net_name'] as String?;
+    if (netName != null && netName.isNotEmpty) {
+      await DatabaseHelper.setNetName(netName);
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   static Future<int> _ensureCheckin(int weekId, int personId) async {

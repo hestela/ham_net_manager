@@ -11,6 +11,7 @@ import '../app_version.dart';
 import '../database/database_helper.dart';
 import '../models/person.dart';
 import '../repositories/net_repository.dart';
+import '../services/sync_service.dart';
 import '../utils/file_io.dart';
 import 'manage_cities_screen.dart';
 import 'manage_persons_screen.dart';
@@ -621,6 +622,51 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             subtitle: const Text('Remove from list or delete file'),
             onTap: _removeCurrentDatabase,
           ),
+          const Divider(),
+          const ListTile(
+            leading: Icon(Icons.cloud),
+            title: Text('Cloud Sync',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            dense: true,
+          ),
+          FutureBuilder<(String?, String?)>(
+            future: Future.wait([
+              SyncService.getLastPush(),
+              SyncService.getLastPull(),
+            ]).then((r) => (r[0], r[1])),
+            builder: (context, snap) {
+              final String? lastPush = snap.data?.$1;
+              final String? lastPull = snap.data?.$2;
+              final pushLabel = lastPush != null
+                  ? 'Last push: ${_formatSyncTime(lastPush)}'
+                  : 'Never pushed';
+              final pullLabel = lastPull != null
+                  ? 'Last pull: ${_formatSyncTime(lastPull)}'
+                  : 'Never pulled';
+              return ListTile(
+                dense: true,
+                title: Text(pushLabel,
+                    style: Theme.of(context).textTheme.bodySmall),
+                subtitle: Text(pullLabel,
+                    style: Theme.of(context).textTheme.bodySmall),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_upload),
+            title: const Text('Push to Cloud'),
+            onTap: _syncPush,
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download),
+            title: const Text('Pull from Cloud'),
+            onTap: _syncPull,
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Sync Settings...'),
+            onTap: _showSyncSettingsDialog,
+          ),
         ],
       ),
     );
@@ -1037,6 +1083,145 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         builder: (_) => SetupScreen(existingPaths: existing),
       ),
     );
+  }
+
+  // ── Cloud Sync ────────────────────────────────────────────────────────────
+
+  Future<void> _syncPush() async {
+    Navigator.of(context).pop(); // close drawer
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    if (config.workerUrl.isEmpty || config.apiToken.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Configure Sync Settings before pushing.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pushing to cloud...')),
+    );
+    try {
+      await SyncService.push(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Push successful.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Push failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _syncPull() async {
+    Navigator.of(context).pop(); // close drawer
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    if (config.workerUrl.isEmpty || config.apiToken.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Configure Sync Settings before pulling.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pulling from cloud...')),
+    );
+    try {
+      await SyncService.pull(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pull successful.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pull failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _showSyncSettingsDialog() async {
+    Navigator.of(context).pop(); // close drawer
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    final urlCtrl = TextEditingController(text: config.workerUrl);
+    final tokenCtrl = TextEditingController(text: config.apiToken);
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sync Settings'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Worker URL',
+                  hintText: 'https://ham-net-sync.yourname.workers.dev',
+                ),
+                keyboardType: TextInputType.url,
+                autofocus: true,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: tokenCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'API Token',
+                  hintText: 'Shared secret token',
+                ),
+                obscureText: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await SyncService.saveConfig(
+                  urlCtrl.text.trim(), tokenCtrl.text.trim());
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    urlCtrl.dispose();
+    tokenCtrl.dispose();
+  }
+
+  String _formatSyncTime(String iso8601) {
+    try {
+      final DateTime dt = DateTime.parse(iso8601).toLocal();
+      final now = DateTime.now();
+      final Duration diff = now.difference(dt);
+      if (diff.inDays >= 1) return '${diff.inDays}d ago';
+      if (diff.inHours >= 1) return '${diff.inHours}h ago';
+      if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+      return 'just now';
+    } catch (_) {
+      return iso8601;
+    }
   }
 
   // ── Header section (week selector + net roles) ────────────────────────────

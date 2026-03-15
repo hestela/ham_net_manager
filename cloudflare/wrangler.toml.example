@@ -1,0 +1,12 @@
+name = "ham-net-sync"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Run `wrangler whoami` to find your account ID
+account_id = "YOUR_ACCOUNT_ID_HERE"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ham-net-sync"
+# Run `wrangler d1 create ham-net-sync` to get the database_id
+database_id = "YOUR_DATABASE_ID_HERE"
