@@ -92,13 +92,46 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       _weekEnding = DateTime.parse(savedDate);
     }
     await _load();
-    // Show a banner if there are unsynced changes from a previous session.
+    await _checkCloudState();
+  }
+
+  /// After loading a database, checks sync state and either:
+  /// - shows the pending-changes banner (if there are unsynced local changes), or
+  /// - kicks off a background pull (if sync is configured and nothing is pending).
+  Future<void> _checkCloudState() async {
     final bool hasPending = await SyncService.hasPendingSync();
-    if (!hasPending || !mounted) return;
     final ({String workerUrl, String apiToken}) config =
         await SyncService.getConfig();
-    if (config.workerUrl.isNotEmpty && config.apiToken.isNotEmpty && mounted) {
+    final bool syncConfigured =
+        config.workerUrl.isNotEmpty && config.apiToken.isNotEmpty;
+
+    if (!mounted || !syncConfigured) return;
+
+    if (hasPending) {
       setState(() => _showPendingBanner = true);
+    } else {
+      // Load local data first (already done), then pull in the background.
+      // Ignore errors — auto-pull is best-effort.
+      _autoPullFromCloud(config);
+    }
+  }
+
+  Future<void> _autoPullFromCloud(
+      ({String workerUrl, String apiToken}) config) async {
+    try {
+      await SyncService.pull(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Refreshed from cloud.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      // Silent failure — don't bother the user if auto-pull fails.
     }
   }
 
@@ -901,6 +934,12 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                   subtitle: const Text('Import a .sqlite file from elsewhere'),
                   onTap: () => Navigator.pop(ctx, '_pick_file_'),
                 ),
+              ListTile(
+                leading: const Icon(Icons.cloud_download),
+                title: const Text('Import from cloud...'),
+                subtitle: const Text('Download a net from a sync worker'),
+                onTap: () => Navigator.pop(ctx, '_import_cloud_'),
+              ),
             ],
           ),
         ),
@@ -914,6 +953,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
 
     if (chosen == null || !mounted) return;
+
+    if (chosen == '_import_cloud_') {
+      await _importFromCloud();
+      return;
+    }
 
     String pathToOpen;
 
@@ -937,6 +981,174 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       _persons = [];
       _checkins = {};
       _netRoles = {};
+      _showPendingBanner = false;
+    });
+    await _load();
+    await _checkCloudState();
+  }
+
+  Future<void> _importFromCloud() async {
+    final urlCtrl = TextEditingController();
+    final tokenCtrl = TextEditingController();
+    String? dialogError;
+
+    // Step 1: collect Worker URL + token
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Import from Cloud'),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter the sync details from the machine that manages this net.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: urlCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Worker URL',
+                    hintText: 'https://ham-net-sync.yourname.workers.dev',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.url,
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tokenCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'API Token',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                if (dialogError != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    dialogError!,
+                    style: TextStyle(
+                        color: Theme.of(ctx).colorScheme.error, fontSize: 13),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (urlCtrl.text.trim().isEmpty ||
+                    tokenCtrl.text.trim().isEmpty) {
+                  setDialogState(() => dialogError = 'All fields are required.');
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Next'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final String workerUrl = urlCtrl.text.trim();
+    final String token = tokenCtrl.text.trim();
+    urlCtrl.dispose();
+    tokenCtrl.dispose();
+
+    // Step 2: fetch available nets
+    List<RemoteNet> nets;
+    try {
+      nets = await SyncService.fetchNets(workerUrl: workerUrl, token: token);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not connect: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (nets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'No nets found on server. Push from the main machine first.')),
+      );
+      return;
+    }
+
+    // Step 3: if multiple nets, let user pick; if only one, use it directly
+    RemoteNet chosen;
+    if (nets.length == 1) {
+      chosen = nets.first;
+    } else {
+      final RemoteNet? picked = await showDialog<RemoteNet>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Select Net'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: nets
+                  .map((net) => ListTile(
+                        title: Text(net.name),
+                        subtitle: Text('Last updated: ${net.updatedAt}',
+                            style: const TextStyle(fontSize: 11)),
+                        onTap: () => Navigator.pop(ctx, net),
+                      ))
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (picked == null || !mounted) return;
+      chosen = picked;
+    }
+
+    // Step 4: initialize DB with chosen net name, save config, pull
+    try {
+      await DatabaseHelper.close();
+      await DatabaseHelper.initialize(chosen.name);
+      await SyncService.saveConfig(workerUrl, token);
+      await SyncService.pull(
+          workerUrl: workerUrl, token: token, slug: chosen.slug);
+    } catch (e) {
+      await DatabaseHelper.close();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _weekEnding = _defaultWeekEnding();
+      _weekId = null;
+      _persons = [];
+      _checkins = {};
+      _netRoles = {};
+      _showPendingBanner = false;
     });
     await _load();
   }
