@@ -9,9 +9,11 @@ import 'weekly_checkin_screen.dart';
 
 class SetupScreen extends StatefulWidget {
 
-  const SetupScreen({super.key, this.existingPaths = const []});
+  const SetupScreen({super.key, this.existingPaths = const [], this.lastOpenedPath});
   /// If non-empty, existing database paths (or names on web) are shown.
   final List<String> existingPaths;
+  /// If set, this path is highlighted as the most recently used database.
+  final String? lastOpenedPath;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -324,6 +326,8 @@ class _SetupScreenState extends State<SetupScreen> {
                             final String title = kIsWeb
                                 ? path
                                 : p.basenameWithoutExtension(path);
+                            final isLastOpened =
+                                path == widget.lastOpenedPath;
                             return ListTile(
                               leading: const Icon(Icons.storage),
                               title: Text(
@@ -334,10 +338,25 @@ class _SetupScreenState extends State<SetupScreen> {
                               subtitle: kIsWeb
                                   ? null
                                   : Text(
-                                      path,
-                                      style: const TextStyle(fontSize: 11),
+                                      isLastOpened
+                                          ? 'Last opened'
+                                          : path,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isLastOpened
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                            : null,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                              tileColor: isLastOpened
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                      .withValues(alpha: 0.3)
+                                  : null,
                               onTap: () => _openExisting(path),
                               trailing: IconButton(
                                 icon: const Icon(Icons.remove_circle_outline),

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _hiddenPrefKey = 'hidden_databases';
 const _recentDatabasesPrefKey = 'recent_databases';
+const _lastOpenedPrefKey = 'last_opened_db';
 
 Future<String> platformGetAppDirectoryPath() async {
   final Directory docsDir = await getApplicationDocumentsDirectory();
@@ -59,6 +60,21 @@ Future<void> platformAddRecentDatabase(String path) async {
   final Set<String> recent = (prefs.getStringList(_recentDatabasesPrefKey) ?? []).toSet()
     ..add(path);
   await prefs.setStringList(_recentDatabasesPrefKey, recent.toList());
+}
+
+Future<void> platformSaveLastOpened(String path) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_lastOpenedPrefKey, path);
+}
+
+Future<String?> platformGetLastOpened() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getString(_lastOpenedPrefKey);
+}
+
+Future<void> platformClearLastOpened() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.remove(_lastOpenedPrefKey);
 }
 
 Future<void> platformUnhideDatabase(String path) async {

@@ -80,6 +80,10 @@ class DatabaseHelper {
     );
     _currentCity = netName;
 
+    if (!kIsWeb && filePath != null) {
+      await platformSaveLastOpened(filePath);
+    }
+
     // On web, track the net name in SharedPreferences so it shows up next time.
     if (kIsWeb) {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -113,6 +117,7 @@ class DatabaseHelper {
       if (!path.startsWith(dirPath)) {
         await platformAddRecentDatabase(path);
       }
+      await platformSaveLastOpened(path);
     } else {
       // Web: path is the net name; slugify for the OPFS key.
       _currentSlug = _toSlug(path);

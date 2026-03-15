@@ -8,3 +8,7 @@ Future<void> platformRemoveDatabase(String path,
 Future<void> platformAddRecentDatabase(String path) async {}
 
 Future<void> platformUnhideDatabase(String path) async {}
+
+Future<void> platformSaveLastOpened(String path) async {}
+Future<String?> platformGetLastOpened() async => null;
+Future<void> platformClearLastOpened() async {}

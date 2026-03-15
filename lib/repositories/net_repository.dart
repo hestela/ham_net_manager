@@ -506,7 +506,8 @@ class NetRepository {
   /// Upserts all records from a previously exported snapshot.
   /// Processes tables in FK-safe order.
   static Future<void> importAllData(Map<String, dynamic> data) async {
-    Future<void> upsertAll(String table, List<dynamic> rows) async {
+    Future<void> upsertAll(
+        String table, List<dynamic> rows) async {
       for (final dynamic row in rows) {
         final map = Map<String, dynamic>.from(row as Map);
         final String keys = map.keys.join(', ');
@@ -527,13 +528,16 @@ class NetRepository {
         (data['checkin_methods'] as List?) ?? [];
     final List<dynamic> netRoles = (data['net_roles'] as List?) ?? [];
 
-    await upsertAll('cities', cities);
-    await upsertAll('neighborhoods', neighborhoods);
-    await upsertAll('persons', persons);
-    await upsertAll('weeks', weeks);
-    await upsertAll('checkins', checkins);
-    await upsertAll('checkin_methods', checkinMethods);
-    await upsertAll('net_roles', netRoles);
+    // Run all upserts in a single transaction so the import is atomic.
+    await _db.transaction(() async {
+      await upsertAll('cities', cities);
+      await upsertAll('neighborhoods', neighborhoods);
+      await upsertAll('persons', persons);
+      await upsertAll('weeks', weeks);
+      await upsertAll('checkins', checkins);
+      await upsertAll('checkin_methods', checkinMethods);
+      await upsertAll('net_roles', netRoles);
+    });
 
     final netName = data['net_name'] as String?;
     if (netName != null && netName.isNotEmpty) {
