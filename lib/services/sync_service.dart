@@ -19,6 +19,7 @@ class RemoteNet {
 class SyncService {
   // ── Config keys ──────────────────────────────────────────────────────────
 
+  static const String _kUserAgent = 'HamNetManager/1.0';
   static const String _kWorkerUrl = 'sync_worker_url';
   static const String _kApiToken = 'sync_api_token';
   static const String _kLastPush = 'sync_last_push';
@@ -51,7 +52,7 @@ class SyncService {
     final Uri uri = Uri.parse('${_baseUrl(workerUrl)}/nets');
     final http.Response response = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {'Authorization': 'Bearer $token', 'User-Agent': _kUserAgent},
     );
 
     if (response.statusCode == 401) throw Exception('Invalid token.');
@@ -87,6 +88,7 @@ class SyncService {
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'User-Agent': _kUserAgent,
       },
       body: jsonEncode(data),
     );
@@ -112,7 +114,7 @@ class SyncService {
 
     final http.Response response = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {'Authorization': 'Bearer $token', 'User-Agent': _kUserAgent},
     );
 
     if (response.statusCode == 404) {

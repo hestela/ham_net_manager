@@ -4,6 +4,8 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
 };
 
+const ALLOWED_USER_AGENT = 'HamNetManager/1.0';
+
 function unauthorized() {
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401,
@@ -17,12 +19,17 @@ function checkAuth(request, env) {
   return token === env.API_TOKEN;
 }
 
+function checkUserAgent(request) {
+  return request.headers.get('User-Agent') === ALLOWED_USER_AGENT;
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
+    if (!checkUserAgent(request)) return unauthorized();
     if (!checkAuth(request, env)) return unauthorized();
 
     const url = new URL(request.url);

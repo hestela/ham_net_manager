@@ -131,6 +131,20 @@ You do not need to re-run the schema or secret steps unless explicitly noted.
 
 ---
 
+## Securing API endpoints
+A quick way to reduce the amount of bot traffic against the workers is to add a custom rule. Free accounts are allowed up to 5 custom rules per domain.
+This rule will block requests that don't have the custom user agent the app uses.
+
+1. cloudflare account and look for Security Rules -> Custom Rules. 
+2. Create Rule
+3. pick a name such as: Block non-app requests
+4. edit expression
+5. `(http.host eq "YOUR_DOMAIN_OR_WORKER" and http.user_agent ne "HamNetManager/1.0")`
+6. before saving, replace YOUR_DOMAIN_OR_WORKER with either your custom domain name you are using (ie net-api.cooldomain.org or ham-net-sync.your_account_name.workers.dev)
+7. save
+If you come back to the the security rules page later, you can click on the link under the column "Events last 24h" to see how many requests this rule is blocking. Note that the http.host is very important to set, as if you are using this same account to host a website or other resources, cloudflare may start blocking legitimate https traffic to your website.
+
+
 ## Troubleshooting
 
 **401 Unauthorized**
