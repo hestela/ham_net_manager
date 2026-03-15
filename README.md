@@ -10,6 +10,7 @@ A Flutter application for managing ham radio nets on Linux (including Raspberry 
 - **Markdown Net Control Scripts**: Each net can have its own script with most markdown syntax supported including tables. A few variables are provided to insert your own callsign into the net script.
 - **Member Management**: Add/remove radio operators to the net as needed. Operators are stored in each net's database file.
 - **Operator search**: Fuzzy search for ham radio operators by multiple fields (ie callsign, first name, city) in the main check-in UI and member management screen.
+- **Cloud Sync**: Optionally sync your net database to a self-hosted [Cloudflare Worker](https://workers.cloudflare.com/) so multiple operators can share and update the same net data. See [docs/CLOUD_SYNC.md](docs/CLOUD_SYNC.md) for setup instructions.
 
 ## Web Version
 
@@ -98,7 +99,20 @@ the icon at the top left of the main check-in UI has a so called "hamburger menu
 - Switch Database (switch to previously setup net)
 - Save Database As (to export sqlite database to a new location)
 - Remove current database (to remove current net from history and optionally delete sqlite database file)
+- Cloud Sync (Push to Cloud, Pull from Cloud, Sync Settings)
 <img src="screenshots/navigation.webp" width="350" />
+
+### Cloud Sync
+Ham Net Manager supports optional cloud sync via a self-hosted [Cloudflare Worker](https://workers.cloudflare.com/) and [Cloudflare D1](https://developers.cloudflare.com/d1/) (serverless SQLite). This is useful when multiple operators share a net — one person pushes after the net ends, others pull the latest data before the next session.
+
+Key behaviours:
+- **Auto-pull on launch**: if sync is configured and you have no pending local changes, the app pulls the latest data silently in the background when you open a database.
+- **Pending changes banner**: if you close the app without pushing, a reminder banner appears on the next launch.
+- **Exit prompt**: closing the app with unsynced changes prompts you to sync before exiting.
+- **Conflict detection**: if another device has pushed since your last sync, you are warned before your push can overwrite their work.
+- Free on Cloudflare's free tier (100k requests/day, 5 GB storage).
+
+See **[docs/CLOUD_SYNC.md](docs/CLOUD_SYNC.md)** for full setup instructions.
 
 ### Switch Database/Net
 <img src="screenshots/switch-net.webp" width="350" />
