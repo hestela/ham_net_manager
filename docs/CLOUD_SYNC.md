@@ -13,6 +13,8 @@ Ham Net Manager supports optional cloud sync using [Cloudflare Workers](https://
 - **Strategy:** last push wins. There is no conflict resolution — this is intentional for the typical use case where one person manages the net at a time.
 - The Worker supports multiple nets. Each net is stored under its own key derived from the net name.
 
+D1 does have 7 days of snapshots, so if you make a mistake and and up pushing that data back to cloudflare, you could go in to the D1 database settings under time travel and restore to an earlier snapshot and then pull the data in the app.
+
 ---
 
 ## One-Time Server Setup
@@ -141,7 +143,8 @@ This rule will block requests that don't have the custom user agent the app uses
 4. edit expression
 5. `(http.host eq "YOUR_DOMAIN_OR_WORKER" and http.user_agent ne "HamNetManager/1.0")`
 6. before saving, replace YOUR_DOMAIN_OR_WORKER with either your custom domain name you are using (ie net-api.cooldomain.org or ham-net-sync.your_account_name.workers.dev)
-7. save
+7. for "Then take action", select "Block"
+8. save
 If you come back to the the security rules page later, you can click on the link under the column "Events last 24h" to see how many requests this rule is blocking. Note that the http.host is very important to set, as if you are using this same account to host a website or other resources, cloudflare may start blocking legitimate https traffic to your website.
 
 
