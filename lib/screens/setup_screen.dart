@@ -142,41 +142,43 @@ class _SetupScreenState extends State<SetupScreen> {
           title: const Text('Import from Cloud'),
           content: SizedBox(
             width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Enter the sync details from the machine that manages this net.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: urlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Worker URL',
-                    hintText: 'https://ham-net-sync.yourname.workers.dev',
-                    border: OutlineInputBorder(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter the sync details from the machine that manages this net.',
+                    style: TextStyle(fontSize: 13),
                   ),
-                  keyboardType: TextInputType.url,
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: tokenCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'API Token',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Worker URL',
+                      hintText: 'https://ham-net-sync.yourname.workers.dev',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                    autofocus: true,
                   ),
-                  obscureText: true,
-                ),
-                if (dialogError != null) ...[
                   const SizedBox(height: 12),
-                  Text(dialogError!,
-                      style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13)),
+                  TextField(
+                    controller: tokenCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'API Token',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(dialogError!,
+                        style: TextStyle(
+                            color: Theme.of(ctx).colorScheme.error,
+                            fontSize: 13)),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           actions: [
@@ -205,8 +207,6 @@ class _SetupScreenState extends State<SetupScreen> {
 
     final String workerUrl = urlCtrl.text.trim();
     final String token = tokenCtrl.text.trim();
-    urlCtrl.dispose();
-    tokenCtrl.dispose();
 
     setState(() => _loading = true);
 

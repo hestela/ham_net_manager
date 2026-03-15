@@ -1001,42 +1001,44 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
           title: const Text('Import from Cloud'),
           content: SizedBox(
             width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Enter the sync details from the machine that manages this net.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: urlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Worker URL',
-                    hintText: 'https://ham-net-sync.yourname.workers.dev',
-                    border: OutlineInputBorder(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter the sync details from the machine that manages this net.',
+                    style: TextStyle(fontSize: 13),
                   ),
-                  keyboardType: TextInputType.url,
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: tokenCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'API Token',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Worker URL',
+                      hintText: 'https://ham-net-sync.yourname.workers.dev',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                    autofocus: true,
                   ),
-                  obscureText: true,
-                ),
-                if (dialogError != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    dialogError!,
-                    style: TextStyle(
-                        color: Theme.of(ctx).colorScheme.error, fontSize: 13),
+                  TextField(
+                    controller: tokenCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'API Token',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
                   ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      dialogError!,
+                      style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error, fontSize: 13),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           actions: [
@@ -1064,8 +1066,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
     final String workerUrl = urlCtrl.text.trim();
     final String token = tokenCtrl.text.trim();
-    urlCtrl.dispose();
-    tokenCtrl.dispose();
 
     // Step 2: fetch available nets
     List<RemoteNet> nets;
@@ -1343,6 +1343,46 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       );
       return;
     }
+
+    // Check whether the cloud has newer data before overwriting it.
+    try {
+      final bool conflict = await SyncService.cloudHasNewerData(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (conflict && mounted) {
+        final _SyncConflictAction? action = await _showSyncConflictDialog();
+        if (!mounted) return;
+        if (action == null || action == _SyncConflictAction.cancel) return;
+        if (action == _SyncConflictAction.pullFirst) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pulling cloud data...')),
+          );
+          try {
+            await SyncService.pull(
+                workerUrl: config.workerUrl, token: config.apiToken);
+            if (!mounted) return;
+            await _load();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pulled. Review the changes and push again when ready.'),
+              ),
+            );
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Pull failed: $e')),
+            );
+          }
+          return;
+        }
+        // action == pushAnyway: fall through to push
+      }
+    } catch (_) {
+      // Conflict check failed (e.g. offline) — proceed and let the push
+      // itself fail or succeed naturally.
+    }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Pushing to cloud...')),
@@ -1362,6 +1402,38 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         SnackBar(content: Text('Push failed: $e')),
       );
     }
+  }
+
+  Future<_SyncConflictAction?> _showSyncConflictDialog() {
+    return showDialog<_SyncConflictAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cloud Has Newer Data'),
+        content: const Text(
+          'Someone else pushed changes after you last synced. '
+          'Pushing now will overwrite their work.\n\n'
+          'Pull their changes first to review them, then push to '
+          'send your combined changes to the cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.pushAnyway),
+            child: const Text('Push Anyway'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.pullFirst),
+            child: const Text('Pull First'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _syncPull() async {
@@ -1452,8 +1524,6 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       ),
     );
 
-    urlCtrl.dispose();
-    tokenCtrl.dispose();
   }
 
   String _formatSyncTime(String iso8601) {
@@ -2137,3 +2207,5 @@ DateTime _defaultWeekEnding() {
 }
 
 enum _RemoveAction { cancel, hideOnly, deleteFile }
+
+enum _SyncConflictAction { cancel, pullFirst, pushAnyway }

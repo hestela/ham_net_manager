@@ -65,12 +65,34 @@ class _ExitSyncDialog extends StatefulWidget {
 class _ExitSyncDialogState extends State<_ExitSyncDialog> {
   bool _syncing = false;
   String? _error;
+  // Set to true after we detect a conflict; the next tap will push anyway.
+  bool _conflictWarning = false;
 
   Future<void> _syncAndExit() async {
     setState(() {
       _syncing = true;
       _error = null;
     });
+
+    // First click: check for conflict (unless user already acknowledged it).
+    if (!_conflictWarning) {
+      try {
+        final bool conflict = await SyncService.cloudHasNewerData(
+          workerUrl: widget.config.workerUrl,
+          token: widget.config.apiToken,
+        );
+        if (conflict) {
+          setState(() {
+            _syncing = false;
+            _conflictWarning = true;
+          });
+          return; // show the warning; user must click again to confirm
+        }
+      } catch (_) {
+        // Conflict check failed — proceed and let push fail naturally.
+      }
+    }
+
     try {
       await SyncService.push(
         workerUrl: widget.config.workerUrl,
@@ -82,6 +104,7 @@ class _ExitSyncDialogState extends State<_ExitSyncDialog> {
     } catch (e) {
       setState(() {
         _syncing = false;
+        _conflictWarning = false;
         _error = e.toString();
       });
     }
@@ -96,12 +119,20 @@ class _ExitSyncDialogState extends State<_ExitSyncDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('You have unsynced changes. Sync before exiting?'),
+          if (_conflictWarning) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Warning: the cloud has newer data from another device. '
+              'Pushing will overwrite their changes. '
+              'Tap "Sync & Exit" again to confirm, or "Exit Without Syncing" to leave their data intact.',
+              style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
               'Sync failed: $_error',
-              style: TextStyle(
-                  color: Colors.red.shade700, fontSize: 13),
+              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
             ),
           ],
         ],
@@ -128,7 +159,7 @@ class _ExitSyncDialogState extends State<_ExitSyncDialog> {
               ),
               FilledButton(
                 onPressed: _syncAndExit,
-                child: const Text('Sync & Exit'),
+                child: Text(_conflictWarning ? 'Sync & Exit (Overwrite)' : 'Sync & Exit'),
               ),
             ],
     );

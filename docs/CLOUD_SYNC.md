@@ -10,10 +10,11 @@ Ham Net Manager supports optional cloud sync using [Cloudflare Workers](https://
 
 - **Push** — the active operator's machine serializes the local database and uploads it to the Worker.
 - **Pull** — any other machine downloads the latest snapshot and merges it into their local database.
-- **Strategy:** last push wins. There is no conflict resolution — this is intentional for the typical use case where one person manages the net at a time.
+- **Auto-pull on launch** — when you open a database that has sync configured and no pending local changes, the app automatically pulls the latest cloud data in the background. You see local data immediately; the screen refreshes silently if anything changed.
+- **Conflict detection** — before any push, the app checks whether the cloud was updated after your last sync. If another device pushed in the meantime, you are warned and offered a choice (see [Conflict Handling](#conflict-handling) below).
 - The Worker supports multiple nets. Each net is stored under its own key derived from the net name.
 
-D1 does have 7 days of snapshots, so if you make a mistake and and up pushing that data back to cloudflare, you could go in to the D1 database settings under time travel and restore to an earlier snapshot and then pull the data in the app.
+D1 does have 7 days of snapshots, so if you make a mistake and end up pushing bad data to Cloudflare, you can go into the D1 database settings under Time Travel, restore to an earlier snapshot, and then pull the data in the app.
 
 ---
 
@@ -105,6 +106,8 @@ On any other machine that needs access to the net data:
 
 The sync settings (Worker URL and token) are saved automatically during import, so **Push to Cloud** and **Pull from Cloud** in the drawer work immediately.
 
+You can also import a cloud net from within the app at any time: open the drawer → **Switch Database** → **Import from cloud...**
+
 ---
 
 ## Day-to-Day Usage
@@ -117,6 +120,48 @@ The sync settings (Worker URL and token) are saved automatically during import, 
 Both actions are in the drawer under **Cloud Sync**.
 
 The drawer also shows timestamps for the last push and last pull so you can tell at a glance whether your data is current.
+
+### Automatic behaviour
+
+- **On launch / database switch:** if sync is configured and you have no pending local changes, the app pulls quietly in the background and shows a brief "Refreshed from cloud." notification if anything changed.
+- **Pending changes banner:** if you closed the app without pushing, a banner appears at the top of the screen on the next launch with a **Sync Now** button.
+- **Exit prompt:** if you close the app with unsynced local changes and sync is configured, a dialog gives you three options: **Sync & Exit**, **Exit Without Syncing**, or **Cancel**.
+
+---
+
+## Conflict Handling
+
+A conflict occurs when another device has pushed to the cloud after you last synced. The app detects this automatically before any push by comparing the cloud's last-updated timestamp to your local sync history.
+
+### When a conflict is detected
+
+**From the Push button or Sync Now banner:**
+
+A dialog appears with three choices:
+
+| Choice | What happens |
+|--------|-------------|
+| **Pull First** | Downloads the cloud data and merges it into your local database, then returns you to the screen to review. Your local changes are preserved for rows not in the cloud. Push again when you are ready to send your combined changes. |
+| **Push Anyway** | Uploads your local snapshot immediately, overwriting the cloud. The other device's changes since your last sync will be lost. |
+| **Cancel** | Does nothing. |
+
+**From the exit dialog:**
+
+The first click on **Sync & Exit** detects the conflict and shows a warning. The button label changes to **Sync & Exit (Overwrite)**. Click it again to confirm the overwrite, or choose **Exit Without Syncing** to leave the cloud data intact.
+
+### Merge behaviour
+
+When you pull (either manually or via **Pull First**), the incoming data is merged using `INSERT OR REPLACE` — rows from the cloud replace any local rows with the same ID. Rows that only exist locally (e.g. check-ins you added that have not been pushed yet) are kept. If both sides edited the *same row*, the cloud version wins.
+
+### If both operators need to keep their changes
+
+1. Operator B pushes first.
+2. Operator A chooses **Pull First** — this brings in B's changes.
+3. Operator A reviews the merged data, then pushes — the cloud now contains both A's and B's changes.
+
+### Recovery with D1 Time Travel
+
+D1 retains 7 days of snapshots. If a bad push overwrites important data, go to the Cloudflare dashboard → D1 → your database → **Time Travel**, restore to a snapshot before the bad push, then pull in the app.
 
 ---
 

@@ -54,6 +54,54 @@ class SyncService {
     return v == 'true';
   }
 
+  // ── Conflict detection ────────────────────────────────────────────────────
+
+  /// Returns true if the cloud snapshot was updated more recently than the
+  /// last time this client synced (push or pull), indicating that someone
+  /// else may have pushed changes in the meantime.
+  ///
+  /// Returns false if the net doesn't exist on the server yet (first push),
+  /// or if the timestamps cannot be compared.
+  static Future<bool> cloudHasNewerData({
+    required String workerUrl,
+    required String token,
+  }) async {
+    final String? lastPull = await getLastPull();
+    final String? lastPush = await getLastPush();
+
+    // Never synced at all — this will be a first push, no conflict possible.
+    if (lastPull == null && lastPush == null) return false;
+
+    // Use whichever sync event was most recent.
+    DateTime? lastSync;
+    if (lastPull != null) lastSync = DateTime.tryParse(lastPull);
+    if (lastPush != null) {
+      final DateTime? t = DateTime.tryParse(lastPush);
+      if (t != null && (lastSync == null || t.isAfter(lastSync))) lastSync = t;
+    }
+    if (lastSync == null) return false;
+
+    final List<RemoteNet> nets =
+        await fetchNets(workerUrl: workerUrl, token: token);
+    final String slug = _currentSlug();
+    RemoteNet? remote;
+    for (final n in nets) {
+      if (n.slug == slug) {
+        remote = n;
+        break;
+      }
+    }
+
+    // Net not on server yet — first push, no conflict.
+    if (remote == null) return false;
+
+    final DateTime? cloudUpdated = DateTime.tryParse(remote.updatedAt);
+    if (cloudUpdated == null) return false;
+
+    // Allow a 10-second buffer for clock skew between client and server.
+    return cloudUpdated.isAfter(lastSync.add(const Duration(seconds: 10)));
+  }
+
   // ── Net discovery ─────────────────────────────────────────────────────────
 
   /// Returns all nets stored on the worker.
@@ -145,8 +193,13 @@ class SyncService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static String _baseUrl(String workerUrl) =>
-      workerUrl.trimRight().replaceAll(RegExp(r'/+$'), '');
+  static String _baseUrl(String workerUrl) {
+    final String trimmed = workerUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      return 'https://$trimmed';
+    }
+    return trimmed;
+  }
 
   static String _currentSlug() => Uri.encodeComponent(
         DatabaseHelper.currentCity
