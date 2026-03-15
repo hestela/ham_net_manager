@@ -484,7 +484,9 @@ class NetRepository {
   // ── Sync export / import ───────────────────────────────────────────────────
 
   /// Serializes all user data to a JSON-compatible map.
-  /// The `settings` table is intentionally excluded (local config only).
+  /// The `settings` table is intentionally excluded (local config only),
+  /// but user-authored content like the net control script is included
+  /// explicitly so it survives a cloud round-trip.
   static Future<Map<String, dynamic>> exportAllData() async {
     Future<List<Map<String, dynamic>>> query(String sql) async {
       final List<QueryRow> rows = await _db.customSelect(sql).get();
@@ -493,6 +495,7 @@ class NetRepository {
 
     return {
       'net_name': DatabaseHelper.currentCity,
+      'net_control_script': await DatabaseHelper.getSetting('net_control_script'),
       'cities': await query('SELECT * FROM cities'),
       'neighborhoods': await query('SELECT * FROM neighborhoods'),
       'persons': await query('SELECT * FROM persons'),
@@ -569,6 +572,11 @@ class NetRepository {
     final netName = data['net_name'] as String?;
     if (netName != null && netName.isNotEmpty) {
       await DatabaseHelper.setNetName(netName);
+    }
+
+    final netControlScript = data['net_control_script'] as String?;
+    if (netControlScript != null) {
+      await DatabaseHelper.setSetting('net_control_script', netControlScript);
     }
   }
 

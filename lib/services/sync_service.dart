@@ -24,6 +24,7 @@ class SyncService {
   static const String _kApiToken = 'sync_api_token';
   static const String _kLastPush = 'sync_last_push';
   static const String _kLastPull = 'sync_last_pull';
+  static const String _kPendingSync = 'sync_pending';
 
   // ── Settings ─────────────────────────────────────────────────────────────
 
@@ -41,6 +42,17 @@ class SyncService {
 
   static Future<String?> getLastPush() => DatabaseHelper.getSetting(_kLastPush);
   static Future<String?> getLastPull() => DatabaseHelper.getSetting(_kLastPull);
+
+  static Future<void> setPendingSync() =>
+      DatabaseHelper.setSetting(_kPendingSync, 'true');
+
+  static Future<void> clearPendingSync() =>
+      DatabaseHelper.setSetting(_kPendingSync, 'false');
+
+  static Future<bool> hasPendingSync() async {
+    final String? v = await DatabaseHelper.getSetting(_kPendingSync);
+    return v == 'true';
+  }
 
   // ── Net discovery ─────────────────────────────────────────────────────────
 

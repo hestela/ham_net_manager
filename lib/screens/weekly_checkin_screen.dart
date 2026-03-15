@@ -68,6 +68,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   String _query = '';
   bool _scriptPanelOpen = false;
   double _scriptPanelWidth = 400;
+  bool _showPendingBanner = false;
 
   @override
   void initState() {
@@ -91,6 +92,14 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       _weekEnding = DateTime.parse(savedDate);
     }
     await _load();
+    // Show a banner if there are unsynced changes from a previous session.
+    final bool hasPending = await SyncService.hasPendingSync();
+    if (!hasPending || !mounted) return;
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    if (config.workerUrl.isNotEmpty && config.apiToken.isNotEmpty && mounted) {
+      setState(() => _showPendingBanner = true);
+    }
   }
 
   Future<void> _load() async {
@@ -180,6 +189,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         if (_checkins[personId]?.isEmpty ?? false) _checkins.remove(personId);
       }
     });
+    await SyncService.setPendingSync();
   }
 
   // ── Net roles editing ───────────────────────────────────────────────────────
@@ -201,6 +211,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     }
     final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
     setState(() => _netRoles = roles);
+    await SyncService.setPendingSync();
   }
 
   Future<void> _editNetRole(String day, String role) async {
@@ -283,6 +294,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     if ((saved ?? false) && _weekId != null) {
       final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
       setState(() => _netRoles = roles);
+      await SyncService.setPendingSync();
     }
   }
 
@@ -379,6 +391,22 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_showPendingBanner)
+                  MaterialBanner(
+                    content:
+                        const Text('You have unsynced changes from a previous session.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _showPendingBanner = false),
+                        child: const Text('Dismiss'),
+                      ),
+                      FilledButton(
+                        onPressed: _doSync,
+                        child: const Text('Sync Now'),
+                      ),
+                    ],
+                  ),
                 _buildHeaderSection(),
                 const Divider(height: 1),
                 _buildCountsBar(),
@@ -1089,6 +1117,10 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
 
   Future<void> _syncPush() async {
     Navigator.of(context).pop(); // close drawer
+    await _doSync();
+  }
+
+  Future<void> _doSync() async {
     final ({String workerUrl, String apiToken}) config =
         await SyncService.getConfig();
     if (config.workerUrl.isEmpty || config.apiToken.isEmpty) {
@@ -1106,7 +1138,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     try {
       await SyncService.push(
           workerUrl: config.workerUrl, token: config.apiToken);
+      await SyncService.clearPendingSync();
       if (!mounted) return;
+      setState(() => _showPendingBanner = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Push successful.')),
       );
