@@ -3,6 +3,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
+import '../services/sync_service.dart';
 
 const defaultNetControlScript = '''
 # Net Control Script
@@ -93,6 +94,7 @@ class _NetControlScriptPanelState extends State<NetControlScriptPanel> {
   Future<void> _save() async {
     final String text = _editController.text;
     await DatabaseHelper.setSetting('net_control_script', text);
+    await SyncService.setPendingSync();
     setState(() {
       _rawScript = text;
       _editing = false;

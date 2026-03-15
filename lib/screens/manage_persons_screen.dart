@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../models/person.dart';
 import '../repositories/net_repository.dart';
+import '../services/sync_service.dart';
 import '../utils/file_io.dart';
 
 class ManagePersonsScreen extends StatefulWidget {
@@ -50,11 +51,13 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     } else {
       await NetRepository.updatePerson(result);
     }
+    await SyncService.setPendingSync();
     await _load();
   }
 
   Future<void> _toggleActive(Person person) async {
     await NetRepository.setPersonActive(person.id, !person.isActive);
+    await SyncService.setPendingSync();
     await _load();
   }
 
@@ -81,6 +84,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     );
     if (confirmed != true) return;
     await NetRepository.deletePerson(person.id);
+    await SyncService.setPendingSync();
     await _load();
   }
 
@@ -269,6 +273,7 @@ class _ManagePersonsScreenState extends State<ManagePersonsScreen> {
     if (confirmed != true) return;
 
     final int count = await NetRepository.importPersons(persons);
+    await SyncService.setPendingSync();
     await _load();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

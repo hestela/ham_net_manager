@@ -11,6 +11,7 @@ import '../app_version.dart';
 import '../database/database_helper.dart';
 import '../models/person.dart';
 import '../repositories/net_repository.dart';
+import '../services/sync_service.dart';
 import '../utils/file_io.dart';
 import 'manage_cities_screen.dart';
 import 'manage_persons_screen.dart';
@@ -67,6 +68,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   String _query = '';
   bool _scriptPanelOpen = false;
   double _scriptPanelWidth = 400;
+  bool _showPendingBanner = false;
 
   @override
   void initState() {
@@ -90,6 +92,47 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       _weekEnding = DateTime.parse(savedDate);
     }
     await _load();
+    await _checkCloudState();
+  }
+
+  /// After loading a database, checks sync state and either:
+  /// - shows the pending-changes banner (if there are unsynced local changes), or
+  /// - kicks off a background pull (if sync is configured and nothing is pending).
+  Future<void> _checkCloudState() async {
+    final bool hasPending = await SyncService.hasPendingSync();
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    final bool syncConfigured =
+        config.workerUrl.isNotEmpty && config.apiToken.isNotEmpty;
+
+    if (!mounted || !syncConfigured) return;
+
+    if (hasPending) {
+      setState(() => _showPendingBanner = true);
+    } else {
+      // Load local data first (already done), then pull in the background.
+      // Ignore errors — auto-pull is best-effort.
+      _autoPullFromCloud(config);
+    }
+  }
+
+  Future<void> _autoPullFromCloud(
+      ({String workerUrl, String apiToken}) config) async {
+    try {
+      await SyncService.pull(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Refreshed from cloud.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      // Silent failure — don't bother the user if auto-pull fails.
+    }
   }
 
   Future<void> _load() async {
@@ -179,6 +222,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         if (_checkins[personId]?.isEmpty ?? false) _checkins.remove(personId);
       }
     });
+    await SyncService.setPendingSync();
   }
 
   // ── Net roles editing ───────────────────────────────────────────────────────
@@ -200,6 +244,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     }
     final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
     setState(() => _netRoles = roles);
+    await SyncService.setPendingSync();
   }
 
   Future<void> _editNetRole(String day, String role) async {
@@ -282,6 +327,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     if ((saved ?? false) && _weekId != null) {
       final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
       setState(() => _netRoles = roles);
+      await SyncService.setPendingSync();
     }
   }
 
@@ -378,6 +424,22 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_showPendingBanner)
+                  MaterialBanner(
+                    content:
+                        const Text('You have unsynced changes from a previous session.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _showPendingBanner = false),
+                        child: const Text('Dismiss'),
+                      ),
+                      FilledButton(
+                        onPressed: _doSync,
+                        child: const Text('Sync Now'),
+                      ),
+                    ],
+                  ),
                 _buildHeaderSection(),
                 const Divider(height: 1),
                 _buildCountsBar(),
@@ -621,6 +683,51 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
             subtitle: const Text('Remove from list or delete file'),
             onTap: _removeCurrentDatabase,
           ),
+          const Divider(),
+          const ListTile(
+            leading: Icon(Icons.cloud),
+            title: Text('Cloud Sync',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            dense: true,
+          ),
+          FutureBuilder<(String?, String?)>(
+            future: Future.wait([
+              SyncService.getLastPush(),
+              SyncService.getLastPull(),
+            ]).then((r) => (r[0], r[1])),
+            builder: (context, snap) {
+              final String? lastPush = snap.data?.$1;
+              final String? lastPull = snap.data?.$2;
+              final pushLabel = lastPush != null
+                  ? 'Last push: ${_formatSyncTime(lastPush)}'
+                  : 'Never pushed';
+              final pullLabel = lastPull != null
+                  ? 'Last pull: ${_formatSyncTime(lastPull)}'
+                  : 'Never pulled';
+              return ListTile(
+                dense: true,
+                title: Text(pushLabel,
+                    style: Theme.of(context).textTheme.bodySmall),
+                subtitle: Text(pullLabel,
+                    style: Theme.of(context).textTheme.bodySmall),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_upload),
+            title: const Text('Push to Cloud'),
+            onTap: _syncPush,
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download),
+            title: const Text('Pull from Cloud'),
+            onTap: _syncPull,
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Sync Settings...'),
+            onTap: _showSyncSettingsDialog,
+          ),
         ],
       ),
     );
@@ -827,6 +934,12 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
                   subtitle: const Text('Import a .sqlite file from elsewhere'),
                   onTap: () => Navigator.pop(ctx, '_pick_file_'),
                 ),
+              ListTile(
+                leading: const Icon(Icons.cloud_download),
+                title: const Text('Import from cloud...'),
+                subtitle: const Text('Download a net from a sync worker'),
+                onTap: () => Navigator.pop(ctx, '_import_cloud_'),
+              ),
             ],
           ),
         ),
@@ -840,6 +953,11 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     );
 
     if (chosen == null || !mounted) return;
+
+    if (chosen == '_import_cloud_') {
+      await _importFromCloud();
+      return;
+    }
 
     String pathToOpen;
 
@@ -863,6 +981,174 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       _persons = [];
       _checkins = {};
       _netRoles = {};
+      _showPendingBanner = false;
+    });
+    await _load();
+    await _checkCloudState();
+  }
+
+  Future<void> _importFromCloud() async {
+    final urlCtrl = TextEditingController();
+    final tokenCtrl = TextEditingController();
+    String? dialogError;
+
+    // Step 1: collect Worker URL + token
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Import from Cloud'),
+          content: SizedBox(
+            width: 380,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter the sync details from the machine that manages this net.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Worker URL',
+                      hintText: 'https://ham-net-sync.yourname.workers.dev',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: tokenCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'API Token',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      dialogError!,
+                      style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error, fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (urlCtrl.text.trim().isEmpty ||
+                    tokenCtrl.text.trim().isEmpty) {
+                  setDialogState(() => dialogError = 'All fields are required.');
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Next'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final String workerUrl = urlCtrl.text.trim();
+    final String token = tokenCtrl.text.trim();
+
+    // Step 2: fetch available nets
+    List<RemoteNet> nets;
+    try {
+      nets = await SyncService.fetchNets(workerUrl: workerUrl, token: token);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not connect: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (nets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'No nets found on server. Push from the main machine first.')),
+      );
+      return;
+    }
+
+    // Step 3: if multiple nets, let user pick; if only one, use it directly
+    RemoteNet chosen;
+    if (nets.length == 1) {
+      chosen = nets.first;
+    } else {
+      final RemoteNet? picked = await showDialog<RemoteNet>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Select Net'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: nets
+                  .map((net) => ListTile(
+                        title: Text(net.name),
+                        subtitle: Text('Last updated: ${net.updatedAt}',
+                            style: const TextStyle(fontSize: 11)),
+                        onTap: () => Navigator.pop(ctx, net),
+                      ))
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (picked == null || !mounted) return;
+      chosen = picked;
+    }
+
+    // Step 4: initialize DB with chosen net name, save config, pull
+    try {
+      await DatabaseHelper.close();
+      await DatabaseHelper.initialize(chosen.name);
+      await SyncService.saveConfig(workerUrl, token);
+      await SyncService.pull(
+          workerUrl: workerUrl, token: token, slug: chosen.slug);
+    } catch (e) {
+      await DatabaseHelper.close();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _weekEnding = _defaultWeekEnding();
+      _weekId = null;
+      _persons = [];
+      _checkins = {};
+      _netRoles = {};
+      _showPendingBanner = false;
     });
     await _load();
   }
@@ -1037,6 +1323,221 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
         builder: (_) => SetupScreen(existingPaths: existing),
       ),
     );
+  }
+
+  // ── Cloud Sync ────────────────────────────────────────────────────────────
+
+  Future<void> _syncPush() async {
+    Navigator.of(context).pop(); // close drawer
+    await _doSync();
+  }
+
+  Future<void> _doSync() async {
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    if (config.workerUrl.isEmpty || config.apiToken.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Configure Sync Settings before pushing.')),
+      );
+      return;
+    }
+
+    // Check whether the cloud has newer data before overwriting it.
+    try {
+      final bool conflict = await SyncService.cloudHasNewerData(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (conflict && mounted) {
+        final _SyncConflictAction? action = await _showSyncConflictDialog();
+        if (!mounted) return;
+        if (action == null || action == _SyncConflictAction.cancel) return;
+        if (action == _SyncConflictAction.pullFirst) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pulling cloud data...')),
+          );
+          try {
+            await SyncService.pull(
+                workerUrl: config.workerUrl, token: config.apiToken);
+            if (!mounted) return;
+            await _load();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Pulled. Review the changes and push again when ready.'),
+              ),
+            );
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Pull failed: $e')),
+            );
+          }
+          return;
+        }
+        // action == pushAnyway: fall through to push
+      }
+    } catch (_) {
+      // Conflict check failed (e.g. offline) — proceed and let the push
+      // itself fail or succeed naturally.
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pushing to cloud...')),
+    );
+    try {
+      await SyncService.push(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      await SyncService.clearPendingSync();
+      if (!mounted) return;
+      setState(() => _showPendingBanner = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Push successful.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Push failed: $e')),
+      );
+    }
+  }
+
+  Future<_SyncConflictAction?> _showSyncConflictDialog() {
+    return showDialog<_SyncConflictAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cloud Has Newer Data'),
+        content: const Text(
+          'Someone else pushed changes after you last synced. '
+          'Pushing now will overwrite their work.\n\n'
+          'Pull their changes first to review them, then push to '
+          'send your combined changes to the cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.pushAnyway),
+            child: const Text('Push Anyway'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _SyncConflictAction.pullFirst),
+            child: const Text('Pull First'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _syncPull() async {
+    Navigator.of(context).pop(); // close drawer
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    if (config.workerUrl.isEmpty || config.apiToken.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Configure Sync Settings before pulling.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pulling from cloud...')),
+    );
+    try {
+      await SyncService.pull(
+          workerUrl: config.workerUrl, token: config.apiToken);
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pull successful.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pull failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _showSyncSettingsDialog() async {
+    Navigator.of(context).pop(); // close drawer
+    final ({String workerUrl, String apiToken}) config =
+        await SyncService.getConfig();
+    final urlCtrl = TextEditingController(text: config.workerUrl);
+    final tokenCtrl = TextEditingController(text: config.apiToken);
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sync Settings'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Worker URL',
+                  hintText: 'https://ham-net-sync.yourname.workers.dev',
+                ),
+                keyboardType: TextInputType.url,
+                autofocus: true,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: tokenCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'API Token',
+                  hintText: 'Shared secret token',
+                ),
+                obscureText: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await SyncService.saveConfig(
+                  urlCtrl.text.trim(), tokenCtrl.text.trim());
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+  }
+
+  String _formatSyncTime(String iso8601) {
+    try {
+      final DateTime dt = DateTime.parse(iso8601).toLocal();
+      final now = DateTime.now();
+      final Duration diff = now.difference(dt);
+      if (diff.inDays >= 1) return '${diff.inDays}d ago';
+      if (diff.inHours >= 1) return '${diff.inHours}h ago';
+      if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+      return 'just now';
+    } catch (_) {
+      return iso8601;
+    }
   }
 
   // ── Header section (week selector + net roles) ────────────────────────────
@@ -1706,3 +2207,5 @@ DateTime _defaultWeekEnding() {
 }
 
 enum _RemoveAction { cancel, hideOnly, deleteFile }
+
+enum _SyncConflictAction { cancel, pullFirst, pushAnyway }
