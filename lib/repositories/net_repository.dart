@@ -588,6 +588,11 @@ class NetRepository {
       await upsertAll('neighborhoods', neighborhoods);
       await upsertAll('persons', persons);
       await upsertAll('weeks', weeks);
+      // Delete transactional rows before re-inserting so that removals
+      // (e.g. unchecked methods) are correctly reflected after a pull.
+      await _db.customStatement('DELETE FROM checkin_methods');
+      await _db.customStatement('DELETE FROM checkins');
+      await _db.customStatement('DELETE FROM net_roles');
       await upsertAll('checkins', checkins);
       await upsertAll('checkin_methods', checkinMethods);
       await upsertAll('net_roles', netRoles);
