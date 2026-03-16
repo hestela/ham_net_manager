@@ -14,9 +14,11 @@ Future<String?> saveCsvFile(String defaultFilename, String content) async {
     final Directory dir = await getTemporaryDirectory();
     final path = '${dir.path}/$defaultFilename';
     await File(path).writeAsString(content);
-    final ShareResult result = await Share.shareXFiles(
-      [XFile(path, mimeType: 'text/csv')],
-      subject: defaultFilename,
+    final ShareResult result = await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(path, mimeType: 'text/csv')],
+        subject: defaultFilename,
+      ),
     );
     if (result.status == ShareResultStatus.dismissed) return null;
     return path;
@@ -112,9 +114,11 @@ Future<String?> saveXlsxFile(String defaultFilename, List<int> bytes) async {
     final Directory dir = await getTemporaryDirectory();
     final path = '${dir.path}/$defaultFilename';
     await File(path).writeAsBytes(bytes);
-    final ShareResult result = await Share.shareXFiles(
-      [XFile(path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
-      subject: defaultFilename,
+    final ShareResult result = await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+        subject: defaultFilename,
+      ),
     );
     if (result.status == ShareResultStatus.dismissed) return null;
     return path;
