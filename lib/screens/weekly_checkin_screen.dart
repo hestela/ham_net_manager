@@ -13,6 +13,8 @@ import '../models/person.dart';
 import '../repositories/net_repository.dart';
 import '../services/sync_service.dart';
 import '../utils/file_io.dart';
+import '../utils/web_lifecycle_stub.dart'
+    if (dart.library.html) '../utils/web_lifecycle.dart';
 import 'manage_cities_screen.dart';
 import 'manage_persons_screen.dart';
 import 'net_control_script_dialog.dart';
@@ -108,8 +110,10 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     if (!mounted || !syncConfigured) return;
 
     if (hasPending) {
+      setBeforeUnloadWarning(true);
       setState(() => _showPendingBanner = true);
     } else {
+      setBeforeUnloadWarning(false);
       // Load local data first (already done), then pull in the background.
       // Ignore errors — auto-pull is best-effort.
       _autoPullFromCloud(config);
@@ -223,6 +227,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       }
     });
     await SyncService.setPendingSync();
+    setBeforeUnloadWarning(true);
   }
 
   // ── Net roles editing ───────────────────────────────────────────────────────
@@ -245,6 +250,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
     final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
     setState(() => _netRoles = roles);
     await SyncService.setPendingSync();
+    setBeforeUnloadWarning(true);
   }
 
   Future<void> _editNetRole(String day, String role) async {
@@ -328,6 +334,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       final Map<String, Map<String, dynamic>> roles = await NetRepository.loadNetRoles(_weekId!);
       setState(() => _netRoles = roles);
       await SyncService.setPendingSync();
+      setBeforeUnloadWarning(true);
     }
   }
 
@@ -1391,6 +1398,7 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
       await SyncService.push(
           workerUrl: config.workerUrl, token: config.apiToken);
       await SyncService.clearPendingSync();
+      setBeforeUnloadWarning(false);
       if (!mounted) return;
       setState(() => _showPendingBanner = false);
       ScaffoldMessenger.of(context).showSnackBar(

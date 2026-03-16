@@ -1,0 +1,1 @@
+void setBeforeUnloadWarning(bool enable) {}
