@@ -154,7 +154,7 @@ class SyncService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Push failed (${response.statusCode}): ${response.body}');
+      throw Exception('Push failed (${response.statusCode}): ${_errorMessage(response)}');
     }
 
     await DatabaseHelper.setSetting(
@@ -181,7 +181,7 @@ class SyncService {
       throw Exception('No snapshot found on server. Push first.');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Pull failed (${response.statusCode}): ${response.body}');
+      throw Exception('Pull failed (${response.statusCode}): ${_errorMessage(response)}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -192,6 +192,19 @@ class SyncService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Extracts a human-readable message from an HTTP error response.
+  /// If the body is JSON with an "error" field, returns that value;
+  /// otherwise falls back to the raw body.
+  static String _errorMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded.containsKey('error')) {
+        return decoded['error'].toString();
+      }
+    } catch (_) {}
+    return response.body;
+  }
 
   static String _baseUrl(String workerUrl) {
     final String trimmed = workerUrl.trim().replaceAll(RegExp(r'/+$'), '');
