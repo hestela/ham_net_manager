@@ -46,16 +46,20 @@ class _SetupScreenState extends State<SetupScreen> {
       final bool? confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Remove net'),
-          content: Text('Remove "$displayName" from the list?'),
+          title: const Text('Delete local copy of database'),
+          content: Text(
+              'Delete the local copy of "$displayName"?\n'
+              'All data for this net is stored only in this browser and will be permanently lost.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel'),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remove'),
+              child: const Text('Delete'),
             ),
           ],
         ),

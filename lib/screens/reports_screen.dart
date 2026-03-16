@@ -13,88 +13,68 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  List<DateTime> _availableWeeks = [];
+  // Daily Check-in Data range
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
-  List<WeekSummary> _summaries = [];
-  bool _loading = true;
-  bool _loadingSummaries = false;
   bool _exporting = false;
+
+  // Member Check-in History range
+  DateTime? _historyStart;
+  DateTime? _historyEnd;
+  bool _exportingHistory = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _rangeStart = today.subtract(const Duration(days: 7));
+    _rangeEnd = today;
+    _historyStart = DateTime(now.year - 1, now.month, now.day);
+    _historyEnd = today;
   }
 
-  Future<void> _load() async {
-    final Set<DateTime> dates = await NetRepository.loadDatesWithCheckins();
-    final List<DateTime> sorted = dates.toList()..sort();
-    if (!mounted) return;
+  // ── Preset buttons (affect both date ranges) ────────────────────────────────
+
+  void _applyPreset(int daysBack) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime start;
+    if (daysBack == 0) {
+      start = today;
+    } else if (daysBack == 7) {
+      start = today.subtract(const Duration(days: 7));
+    } else if (daysBack == 30) {
+      start = DateTime(now.year, now.month - 1, now.day);
+    } else {
+      // 1 year
+      start = DateTime(now.year - 1, now.month, now.day);
+    }
     setState(() {
-      _availableWeeks = sorted;
-      _rangeStart = sorted.isNotEmpty ? sorted.first : null;
-      _rangeEnd = sorted.isNotEmpty ? sorted.last : null;
-      _loading = false;
-    });
-    await _loadSummaries();
-  }
-
-  Future<void> _pickStart() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _rangeStart ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null) return;
-    setState(() => _rangeStart = picked);
-    _loadSummaries();
-  }
-
-  Future<void> _pickEnd() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _rangeEnd ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null) return;
-    setState(() => _rangeEnd = picked);
-    _loadSummaries();
-  }
-
-  Future<void> _loadSummaries() async {
-    if (_rangeStart == null || _rangeEnd == null) return;
-    if (_rangeStart!.isAfter(_rangeEnd!)) return;
-    setState(() => _loadingSummaries = true);
-    final List<WeekSummary> summaries =
-        await NetRepository.loadWeekSummaries(_rangeStart!, _rangeEnd!);
-    if (!mounted) return;
-    setState(() {
-      _summaries = summaries;
-      _loadingSummaries = false;
+      _rangeStart = start;
+      _rangeEnd = today;
+      _historyStart = start;
+      _historyEnd = today;
     });
   }
+
+  // ── Export: Daily Check-in Data ─────────────────────────────────────────────
 
   Future<void> _exportXlsx() async {
     if (_rangeStart == null || _rangeEnd == null) return;
     if (_rangeStart!.isAfter(_rangeEnd!)) return;
     setState(() => _exporting = true);
 
+    final List<WeekSummary> summaries =
+        await NetRepository.loadWeekSummaries(_rangeStart!, _rangeEnd!);
     final List<Map<String, dynamic>> checkinRows =
         await NetRepository.loadCheckinsForRange(_rangeStart!, _rangeEnd!);
 
     final excel = Excel.createExcel();
 
-    // ── Sheet 1: Daily Counts ─────────────────────────────────────────────────
-    final Sheet countsSheet = excel['Daily Counts'];
-    excel.delete('Sheet1'); // remove default blank sheet
-
     final boldStyle = CellStyle(bold: true);
 
-    void appendRow(Sheet sheet, List<CellValue?> values,
-        {bool bold = false}) {
+    void appendRow(Sheet sheet, List<CellValue?> values, {bool bold = false}) {
       sheet.appendRow(values);
       if (bold) {
         final int rowIdx = sheet.maxRows - 1;
@@ -106,6 +86,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }
     }
 
+    // ── Sheet 1: Daily Counts ─────────────────────────────────────────────────
+    final Sheet countsSheet = excel['Daily Counts'];
+    excel.delete('Sheet1');
+
     appendRow(countsSheet, [
       TextCellValue('Date'),
       TextCellValue('Non-GMRS Members'),
@@ -114,7 +98,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       TextCellValue('All Guests'),
     ], bold: true);
 
-    for (final WeekSummary s in _summaries) {
+    for (final s in summaries) {
       final DateTime dt = s.weekEnding;
       final label =
           '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
@@ -127,21 +111,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ]);
     }
 
-    // Totals row
     appendRow(countsSheet, [
       TextCellValue('Total'),
-      IntCellValue(_summaries.fold(0, (sum, s) => sum + s.hamOnlyMembers)),
-      IntCellValue(_summaries.fold(0, (sum, s) => sum + s.allMembers)),
-      IntCellValue(_summaries.fold(0, (sum, s) => sum + s.hamOnlyGuests)),
-      IntCellValue(_summaries.fold(0, (sum, s) => sum + s.allGuests)),
+      IntCellValue(summaries.fold(0, (sum, s) => sum + s.hamOnlyMembers)),
+      IntCellValue(summaries.fold(0, (sum, s) => sum + s.allMembers)),
+      IntCellValue(summaries.fold(0, (sum, s) => sum + s.hamOnlyGuests)),
+      IntCellValue(summaries.fold(0, (sum, s) => sum + s.allGuests)),
     ], bold: true);
 
-    // Column widths for Daily Counts sheet
-    countsSheet.setColumnWidth(0, 13); // Date
-    countsSheet.setColumnWidth(1, 20); // Non-GMRS Members
-    countsSheet.setColumnWidth(2, 14); // All Members
-    countsSheet.setColumnWidth(3, 18); // Non-GMRS Guests
-    countsSheet.setColumnWidth(4, 13); // All Guests
+    countsSheet.setColumnWidth(0, 13);
+    countsSheet.setColumnWidth(1, 20);
+    countsSheet.setColumnWidth(2, 14);
+    countsSheet.setColumnWidth(3, 18);
+    countsSheet.setColumnWidth(4, 13);
 
     // ── Sheet 2: Check-ins ────────────────────────────────────────────────────
     final Sheet detailSheet = excel['Check-ins'];
@@ -152,8 +134,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       TextCellValue('FCC Callsign'),
       TextCellValue('Name'),
       TextCellValue('Member/Guest'),
-      ...kCheckInMethods.map(
-          (m) => TextCellValue(kMethodLabels[m]!.replaceAll('\n', ' '))),
+      ...kCheckInMethods
+          .map((m) => TextCellValue(kMethodLabels[m]!.replaceAll('\n', ' '))),
       TextCellValue('City'),
       TextCellValue('Neighborhood'),
     ], bold: true);
@@ -177,30 +159,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ]);
     }
 
-    // Column widths for Check-ins sheet
-    detailSheet.setColumnWidth(0, 13);  // Date
-    detailSheet.setColumnWidth(1, 16);  // GMRS Callsign
-    detailSheet.setColumnWidth(2, 14);  // FCC Callsign
-    detailSheet.setColumnWidth(3, 22);  // Name
-    detailSheet.setColumnWidth(4, 14);  // Member/Guest
-    detailSheet.setColumnWidth(5, 18);  // Repeater Check-In
-    detailSheet.setColumnWidth(6, 17);  // Simplex Check-In
-    detailSheet.setColumnWidth(7, 15);  // Active on DMR
-    detailSheet.setColumnWidth(8, 18);  // GMRS Net Check-in
-    detailSheet.setColumnWidth(9, 16);  // Packet Check-In
-    detailSheet.setColumnWidth(10, 14); // Active on HF
-    detailSheet.setColumnWidth(11, 16); // City
-    detailSheet.setColumnWidth(12, 16); // Neighborhood
+    detailSheet.setColumnWidth(0, 13);
+    detailSheet.setColumnWidth(1, 16);
+    detailSheet.setColumnWidth(2, 14);
+    detailSheet.setColumnWidth(3, 22);
+    detailSheet.setColumnWidth(4, 14);
+    detailSheet.setColumnWidth(5, 18);
+    detailSheet.setColumnWidth(6, 17);
+    detailSheet.setColumnWidth(7, 15);
+    detailSheet.setColumnWidth(8, 18);
+    detailSheet.setColumnWidth(9, 16);
+    detailSheet.setColumnWidth(10, 14);
+    detailSheet.setColumnWidth(11, 16);
+    detailSheet.setColumnWidth(12, 16);
 
     // ── Save ──────────────────────────────────────────────────────────────────
     String fmtDate(DateTime dt) =>
         '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
-    final String startStr = fmtDate(_rangeStart!);
-    final String endStr = fmtDate(_rangeEnd!);
     final String netName =
         DatabaseHelper.currentCity.replaceAll(RegExp(r'[\s/]+'), '-');
-    final filename = '$netName-report-$startStr-to-$endStr.xlsx';
+    final filename =
+        '$netName-report-${fmtDate(_rangeStart!)}-to-${fmtDate(_rangeEnd!)}.xlsx';
 
     final List<int>? bytes = excel.encode();
 
@@ -218,6 +198,91 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  // ── Export: Member Check-in History ─────────────────────────────────────────
+
+  Future<void> _exportHistoryXlsx() async {
+    if (_historyStart == null || _historyEnd == null) return;
+    if (_historyStart!.isAfter(_historyEnd!)) return;
+    setState(() => _exportingHistory = true);
+
+    final List<Map<String, dynamic>> rows =
+        await NetRepository.loadMemberCheckinHistory(
+            _historyStart!, _historyEnd!);
+
+    final excel = Excel.createExcel();
+    final Sheet sheet = excel['Member Check-in History'];
+    excel.delete('Sheet1');
+
+    final boldStyle = CellStyle(bold: true);
+
+    void appendRow(List<CellValue?> values, {bool bold = false}) {
+      sheet.appendRow(values);
+      if (bold) {
+        final int rowIdx = sheet.maxRows - 1;
+        for (var c = 0; c < values.length; c++) {
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: rowIdx))
+              .cellStyle = boldStyle;
+        }
+      }
+    }
+
+    appendRow([
+      TextCellValue('Name'),
+      TextCellValue('GMRS Callsign'),
+      TextCellValue('FCC Callsign'),
+      TextCellValue('Member/Guest'),
+      TextCellValue('Last Check-in'),
+      TextCellValue('Check-ins in Period'),
+    ], bold: true);
+
+    for (final row in rows) {
+      final String name =
+          '${row['first_name'] ?? ''} ${row['last_name'] ?? ''}'.trim();
+      final isMember = (row['is_member'] as int) == 1;
+      appendRow([
+        TextCellValue(name),
+        TextCellValue(row['gmrs_callsign'] as String? ?? ''),
+        TextCellValue(row['fcc_callsign'] as String? ?? ''),
+        TextCellValue(isMember ? 'Member' : 'Guest'),
+        TextCellValue(row['last_checkin_date'] as String? ?? ''),
+        IntCellValue(row['checkin_count'] as int),
+      ]);
+    }
+
+    sheet.setColumnWidth(0, 22);
+    sheet.setColumnWidth(1, 16);
+    sheet.setColumnWidth(2, 14);
+    sheet.setColumnWidth(3, 14);
+    sheet.setColumnWidth(4, 16);
+    sheet.setColumnWidth(5, 20);
+
+    String fmtDate(DateTime dt) =>
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+    final String netName =
+        DatabaseHelper.currentCity.replaceAll(RegExp(r'[\s/]+'), '-');
+    final filename =
+        '$netName-member-history-${fmtDate(_historyStart!)}-to-${fmtDate(_historyEnd!)}.xlsx';
+
+    final List<int>? bytes = excel.encode();
+
+    if (!mounted) return;
+    setState(() => _exportingHistory = false);
+
+    if (bytes == null) return;
+    final String? savedPath = await saveXlsxFile(filename, bytes);
+    if (savedPath == null) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exported ${rows.length} members.')),
+      );
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
   String _fmtDate(DateTime dt) =>
       '${dt.month}/${dt.day}/${dt.year.toString().substring(2)}';
 
@@ -226,74 +291,92 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _rangeEnd != null &&
       _rangeStart!.isAfter(_rangeEnd!);
 
-  static const double _wDate = 120.0;
-  static const double _wNum = 130.0;
-  static const double _tableWidth = _wDate + _wNum * 4;
-  static const double _rowH = 40.0;
+  bool get _historyInvalid =>
+      _historyStart != null &&
+      _historyEnd != null &&
+      _historyStart!.isAfter(_historyEnd!);
 
-  Widget _buildTableHeader() {
-    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 13);
-    return ColoredBox(
-      color: Colors.grey.shade300,
-      child: Row(
-        children: [
-          SizedBox(
-              width: _wDate,
-              child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('Date', style: style))),
-          SizedBox(
-              width: _wNum,
-              child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('Non-GMRS\nMembers', style: style))),
-          SizedBox(
-              width: _wNum,
-              child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('All\nMembers', style: style))),
-          SizedBox(
-              width: _wNum,
-              child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('Non-GMRS\nGuests', style: style))),
-          SizedBox(
-              width: _wNum,
-              child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('All\nGuests', style: style))),
-        ],
-      ),
+  Future<void> _pickDate(
+      BuildContext context, DateTime? current, void Function(DateTime) onPicked) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
     );
+    if (picked != null) onPicked(picked);
   }
 
-  Widget _buildTableRow(String date, int hamMembers, int allMembers,
-      int hamGuests, int allGuests,
-      {bool bold = false, Color? color}) {
-    final style =
-        TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal);
-    Widget cell(String text, double w) => SizedBox(
-          width: w,
-          height: _rowH,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Align(
-                alignment: Alignment.centerLeft, child: Text(text, style: style)),
+  TableRow _buildReportTableRow({
+    required BuildContext context,
+    required String label,
+    required DateTime? start,
+    required DateTime? end,
+    required bool invalid,
+    required bool exporting,
+    required VoidCallback onExport,
+    required void Function(DateTime) onStartPicked,
+    required void Function(DateTime) onEndPicked,
+  }) {
+    return TableRow(
+      children: [
+        // Export button (column width driven by widest label)
+        Padding(
+          padding: const EdgeInsets.only(right: 16, bottom: 8),
+          child: ElevatedButton.icon(
+            icon: exporting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download),
+            label: Text(label),
+            onPressed: (invalid || exporting) ? null : onExport,
           ),
-        );
-    return ColoredBox(
-      color: color ?? Colors.transparent,
-      child: Row(
-        children: [
-          cell(date, _wDate),
-          cell('$hamMembers', _wNum),
-          cell('$allMembers', _wNum),
-          cell('$hamGuests', _wNum),
-          cell('$allGuests', _wNum),
-        ],
-      ),
+        ),
+        // From / To date pickers
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('From:'),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_today, size: 16),
+                    label: Text(start != null ? _fmtDate(start) : 'Pick date'),
+                    onPressed: () => _pickDate(context, start, onStartPicked),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('To:'),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_today, size: 16),
+                    label: Text(end != null ? _fmtDate(end) : 'Pick date'),
+                    onPressed: () => _pickDate(context, end, onEndPicked),
+                  ),
+                ],
+              ),
+              if (invalid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Start date must be before end date.',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -302,174 +385,76 @@ class _ReportsScreenState extends State<ReportsScreen> {
         title: const Text('Reports'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Preset buttons ───────────────────────────────────────────────
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: () => _applyPreset(0),
+                    child: const Text('1 day'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _applyPreset(7),
+                    child: const Text('1 Week'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _applyPreset(30),
+                    child: const Text('1 Month'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _applyPreset(365),
+                    child: const Text('1 Year'),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Report rows (Table keeps buttons column width in sync) ────────
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Table(
+              defaultColumnWidth: const IntrinsicColumnWidth(),
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: [
-                // ── Controls (fixed, horizontally scrollable) ────────────
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    children: [
-                      const Text('Start:'),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.calendar_today, size: 16),
-                        label: Text(_rangeStart != null
-                            ? _fmtDate(_rangeStart!)
-                            : 'Pick date'),
-                        onPressed: _pickStart,
-                      ),
-                      const SizedBox(width: 24),
-                      const Text('End:'),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.calendar_today, size: 16),
-                        label: Text(_rangeEnd != null
-                            ? _fmtDate(_rangeEnd!)
-                            : 'Pick date'),
-                        onPressed: _pickEnd,
-                      ),
-                      const SizedBox(width: 24),
-                      for (final (String label, int days) in [
-                        ('1 day', 0),
-                        ('1 week', 7),
-                        ('2 weeks', 14),
-                        ('4 weeks', 28),
-                      ])
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: OutlinedButton(
-                            onPressed: _rangeEnd == null
-                                ? null
-                                : () {
-                                    setState(() => _rangeStart =
-                                        _rangeEnd!
-                                            .subtract(Duration(days: days)));
-                                    _loadSummaries();
-                                  },
-                            child: Text(label),
-                          ),
-                        ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        icon: _exporting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2),
-                              )
-                            : const Icon(Icons.download),
-                        label: const Text('Download XLSX Report'),
-                        onPressed: (_rangeInvalid || _exporting)
-                            ? null
-                            : _exportXlsx,
-                      ),
-                    ],
-                  ),
+                _buildReportTableRow(
+                  context: context,
+                  label: 'Daily Check-in Data',
+                  start: _rangeStart,
+                  end: _rangeEnd,
+                  invalid: _rangeInvalid,
+                  exporting: _exporting,
+                  onExport: _exportXlsx,
+                  onStartPicked: (d) => setState(() => _rangeStart = d),
+                  onEndPicked: (d) => setState(() => _rangeEnd = d),
                 ),
-
-                if (_rangeInvalid)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text(
-                      'Start date must be before end date.',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-
-                const Divider(height: 1),
-
-                // ── Table (fills remaining space, scrolls both axes) ─────
-                if (_loadingSummaries)
-                  const Expanded(
-                      child: Center(child: CircularProgressIndicator()))
-                else if (_availableWeeks.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No check-ins recorded yet.'),
-                  )
-                else if (_summaries.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No check-ins in selected range.'),
-                  )
-                else
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final double w = _tableWidth > constraints.maxWidth
-                            ? _tableWidth
-                            : constraints.maxWidth;
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            width: w,
-                            child: Column(
-                              children: [
-                                _buildTableHeader(),
-                                const Divider(height: 1),
-                                Flexible(
-                                  child: ListView.separated(
-                                    itemCount: _summaries.length + 1,
-                                    separatorBuilder: (_, __) =>
-                                        const Divider(height: 1),
-                                    itemBuilder: (context, i) {
-                                      if (i < _summaries.length) {
-                                        final WeekSummary s = _summaries[i];
-                                        final DateTime dt = s.weekEnding;
-                                        final label =
-                                            '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-                                        return _buildTableRow(
-                                          label,
-                                          s.hamOnlyMembers,
-                                          s.allMembers,
-                                          s.hamOnlyGuests,
-                                          s.allGuests,
-                                          color: i.isEven
-                                              ? Colors.grey.shade50
-                                              : null,
-                                        );
-                                      } else {
-                                        // Totals row
-                                        return _buildTableRow(
-                                          'Total',
-                                          _summaries.fold(
-                                              0,
-                                              (sum, s) =>
-                                                  sum + s.hamOnlyMembers),
-                                          _summaries.fold(
-                                              0,
-                                              (sum, s) =>
-                                                  sum + s.allMembers),
-                                          _summaries.fold(
-                                              0,
-                                              (sum, s) =>
-                                                  sum + s.hamOnlyGuests),
-                                          _summaries.fold(
-                                              0,
-                                              (sum, s) =>
-                                                  sum + s.allGuests),
-                                          bold: true,
-                                          color: Colors.grey.shade200,
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                _buildReportTableRow(
+                  context: context,
+                  label: 'Member Check-in History',
+                  start: _historyStart,
+                  end: _historyEnd,
+                  invalid: _historyInvalid,
+                  exporting: _exportingHistory,
+                  onExport: _exportHistoryXlsx,
+                  onStartPicked: (d) => setState(() => _historyStart = d),
+                  onEndPicked: (d) => setState(() => _historyEnd = d),
+                ),
               ],
             ),
+          ),
+          ],
+        ),
+      ),
     );
   }
 }
