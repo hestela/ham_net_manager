@@ -1,7 +1,7 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, User-Agent',
 };
 
 const ALLOWED_USER_AGENT = 'HamNetManager/1.0';
@@ -20,7 +20,10 @@ function checkAuth(request, env) {
 }
 
 function checkUserAgent(request) {
-  return request.headers.get('User-Agent') === ALLOWED_USER_AGENT;
+  // Browsers forbid JS from setting User-Agent, so web clients send the
+  // browser's own UA string. Accept any request that passes token auth.
+  const ua = request.headers.get('User-Agent') ?? '';
+  return ua === ALLOWED_USER_AGENT || ua.length > 0;
 }
 
 export default {
@@ -29,8 +32,8 @@ export default {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    if (!checkUserAgent(request)) return unauthorized();
     if (!checkAuth(request, env)) return unauthorized();
+    if (!checkUserAgent(request)) return unauthorized();
 
     const url = new URL(request.url);
 
