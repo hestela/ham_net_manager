@@ -193,6 +193,18 @@ This rule will block requests that don't have the custom user agent the app uses
 If you come back to the the security rules page later, you can click on the link under the column "Events last 24h" to see how many requests this rule is blocking. Note that the http.host is very important to set, as if you are using this same account to host a website or other resources, cloudflare may start blocking legitimate https traffic to your website.
 
 
+## Web Interface
+
+Cloud sync is fully supported in the web build at `hestela.github.io/ham_net_manager`.
+
+- **Push, Pull, auto-pull on launch, conflict detection, and the pending-changes banner** all work identically to the desktop app.
+- **Sync Settings** and **Import from cloud** are available in the drawer on web.
+- **CORS:** The Cloudflare Worker must allow the web app's origin. A WAF allow-rule bypassing the User-Agent block for the GitHub Pages origin (`hestela.github.io`) is already in place.
+- **Limitation:** There is no exit prompt on web (desktop-only feature). Instead, rely on the pending-changes banner — if you closed the tab without pushing, the banner will appear on your next visit with a **Sync Now** button.
+- **Tab close warning:** If you have unsynced local changes and try to close or reload the browser tab, the browser's generic "Leave site?" dialog will appear. This clears automatically once a push completes.
+
+---
+
 ## Troubleshooting
 
 **401 Unauthorized**
