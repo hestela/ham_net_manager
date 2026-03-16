@@ -481,6 +481,30 @@ class NetRepository {
     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
+  /// Returns one row per active person with check-in count within [start]..[end]
+  /// and their last check-in date overall.
+  static Future<List<Map<String, dynamic>>> loadMemberCheckinHistory(
+      DateTime start, DateTime end) async {
+    final List<QueryRow> rows = await _db.customSelect('''
+      SELECT
+        p.id, p.first_name, p.last_name, p.gmrs_callsign, p.fcc_callsign,
+        p.is_member,
+        COUNT(DISTINCT c_range.week_id) AS checkin_count,
+        (SELECT w2.week_ending FROM weeks w2
+         JOIN checkins c2 ON c2.week_id = w2.id
+         WHERE c2.person_id = p.id
+         ORDER BY w2.week_ending DESC LIMIT 1) AS last_checkin_date
+      FROM persons p
+      LEFT JOIN checkins c_range ON c_range.person_id = p.id
+      LEFT JOIN weeks w_range ON w_range.id = c_range.week_id
+        AND w_range.week_ending >= ? AND w_range.week_ending <= ?
+      WHERE p.is_active = 1
+      GROUP BY p.id
+      ORDER BY p.last_name COLLATE NOCASE, p.first_name COLLATE NOCASE
+    ''', variables: _vars([_dateStr(start), _dateStr(end)])).get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  }
+
   // ── Sync export / import ───────────────────────────────────────────────────
 
   /// Serializes all user data to a JSON-compatible map.
