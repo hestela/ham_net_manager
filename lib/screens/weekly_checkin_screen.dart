@@ -613,7 +613,9 @@ class _WeeklyCheckinScreenState extends State<WeeklyCheckinScreen> {
   Widget _buildDrawer() {
     return Drawer(
       child: ListView(
-        padding: EdgeInsets.zero,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
